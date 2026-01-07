@@ -1,0 +1,8 @@
+game
+*.dSYM
+.build
+.DS_Store
+.zed
+.build
+.idea
+.vscode
