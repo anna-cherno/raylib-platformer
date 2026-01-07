@@ -7,7 +7,6 @@ OUTPUT_EXECUTABLE_NAME :: "game";
 
     os_target := OS;
     cpu_target := CPU;
-    cpu_target = .ARM64;
 
     log("Compiling for % %", os_target, cpu_target);
 
