@@ -11,7 +11,6 @@ Tile_Type :: enum {
     SOLID;
     SLOPE_UP;
     SLOPE_DOWN;
-    // ONE_WAY;
 }
 
 tile_index :: inline (m: *Tilemap, x: int, y: int) -> int {
@@ -23,6 +22,16 @@ tile_at :: (m: *Tilemap, tx: int, ty: int) -> Tile_Type {
         return .SOLID; // bounds of tile is solid
     }
     return m.tiles[tile_index(m, tx, ty)];
+}
+
+tile_at_position :: (m: *Tilemap, x: float, y: float) -> Tile_Type, int, int {
+    tx := world_to_tile_x(x);
+    ty := world_to_tile_y(y);
+
+    if tx < 0 || tx >= m.width || ty < 0 || ty >= m.height {
+        return .SOLID, tx, ty; // bounds of tile is solid
+    }
+    return m.tiles[tile_index(m, tx, ty)], tx, ty;
 }
 
 tile_is_slope :: inline (t: Tile_Type) -> bool {
@@ -38,8 +47,8 @@ world_to_tile_y :: inline (y: float) -> int {
 }
 
 tile_slope_at :: (m: *Tilemap, x: int, y: int) -> Tile_Type, bool {
-    tx := cast(int) (x / TILE_SIZE);
-    ty := cast(int) (y / TILE_SIZE);
+    tx := world_to_tile_x(xx x);
+    ty := world_to_tile_y(xx y);
 
     if tx < 0 || tx >= m.width || ty < 0 || ty >= m.height {
         return .SOLID, false; // bounds of tile is solid
@@ -54,8 +63,8 @@ tile_slope_at :: (m: *Tilemap, x: int, y: int) -> Tile_Type, bool {
 }
 
 tile_solid_at :: (m: *Tilemap, x: int, y: int) -> bool {
-    tx := cast(int) (x / TILE_SIZE);
-    ty := cast(int) (y / TILE_SIZE);
+    tx := world_to_tile_x(xx x);
+    ty := world_to_tile_y(xx y);
 
     if tx < 0 || tx >= m.width || ty < 0 || ty >= m.height {
         return true; // bounds of tile is solid
@@ -64,41 +73,114 @@ tile_solid_at :: (m: *Tilemap, x: int, y: int) -> bool {
     return m.tiles[tile_index(m, tx, ty)] == .SOLID;
 }
 
-tile_get_slope_y :: (tile: Tile_Type, world_x: float, tile_x: int, tile_y: int) -> float {
+tile_slope_y :: (tile: Tile_Type, world_x: float, tx: int, ty: int) -> float {
     // Relative position of X inside the tile.
-    local_x := (world_x - cast(float) (tile_x * TILE_SIZE)) / cast(float) TILE_SIZE;
+    local_x := (world_x - cast(float) (tx * TILE_SIZE)) / cast(float) TILE_SIZE;
     local_x = clamp(local_x, 0.0, 1.0);
 
-    base_y := cast(float) (tile_y * TILE_SIZE);
+    tile_bottom_y := cast(float) ((ty + 1) * TILE_SIZE);
+    tile_top_y := cast(float) (ty * TILE_SIZE);
 
+    result: float;
     if tile == {
-        case .SLOPE_UP;   return base_y + (1.0 - local_x) * TILE_SIZE;
-        case .SLOPE_DOWN; return base_y + local_x * TILE_SIZE;
-        case .SOLID;      return base_y;
-        case;             return base_y + TILE_SIZE; // empty
+        case .SLOPE_UP;
+            result = tile_bottom_y - local_x * TILE_SIZE;
+        case .SLOPE_DOWN;
+            result = tile_top_y + local_x * TILE_SIZE;
+        case .SOLID;
+            result = tile_top_y;
+        case;
+            result = tile_top_y + TILE_SIZE; // empty
     }
+
+    return result;
 }
 
-tile_surface_y_at :: (m: *Tilemap, world_x: float, bottom_y: float) -> float, bool {
-    tx := world_to_tile_x(world_x);
-    ty := world_to_tile_y(bottom_y);
+tile_floor_y_at :: (m: *Tilemap, x: float, y: float) -> float, bool {
+    tx := world_to_tile_x(x);
+    ty := world_to_tile_y(y);
+
+    tile_top_y := cast(float) (ty * TILE_SIZE);
 
     if tx < 0 || tx >= m.width || ty < 0 || ty >= m.height {
-        return cast(float) (ty * TILE_SIZE), true;
+        return tile_top_y, true;
     }
 
     t := m.tiles[tile_index(m, tx, ty)];
-    if t == .SOLID {
-        return cast(float) (ty * TILE_SIZE), true;
-    }
-    if tile_is_slope(t) {
-        return tile_get_slope_y(t, world_x, tx, ty), true;
+    if t == .SLOPE_UP || t == .SLOPE_DOWN {
+        return tile_slope_y(t, x, tx, ty), true;
+    } else if t == .SOLID {
+        return tile_top_y, true;
     }
 
-    return 0.0, false;
+    return -1, false;
 }
 
-ground_query_under_segment :: (m: *Tilemap, x_left: float, x_right: float, bottom_y: float) -> float, bool {
+tile_floor_y_collider :: (m: *Tilemap, collider: Rectangle) -> float, bool {
+    eps :: 1.0;
+    left  := collider.x;
+    right := collider.x + collider.width;
+    center := collider.x + collider.width*0.5;
+    top := collider.y;
+    bottom := collider.y + collider.height;
+
+    tx0 := world_to_tile_x(center);
+    ty0 := world_to_tile_y(top);
+    tx1 := world_to_tile_x(center);
+    ty1 := world_to_tile_y(bottom);
+
+    tx1 = clamp(tx1, 0, m.width);
+    tx0 = clamp(tx0, 0, tx1);
+    ty1 = clamp(ty1, 0, m.height);
+    ty0 = clamp(ty0, 0, ty1);
+
+    g_debug.tx0 = tx0;
+    g_debug.ty0 = ty0;
+    g_debug.tx1 = tx1;
+    g_debug.ty1 = ty1;
+
+    best_y := 1000000.0;
+    for tx: tx0..tx1 {
+        for ty: ty0..ty1 {
+            if tx < 0 || tx >= m.width || ty < 0 || ty >= m.height {
+                // array_add(*floors, xx (ty * TILE_SIZE));
+                floor_y := cast(float) (ty * TILE_SIZE);
+                if floor_y < best_y {
+                    best_y = floor_y;
+                }
+                continue;
+            }
+
+            t := m.tiles[tile_index(m, tx, ty)];
+            if t == .EMPTY {
+                continue;
+            }
+
+            floor_y := tile_slope_y(t, center, tx, ty);
+            if floor_y < best_y {
+                best_y = floor_y;
+            }
+        }
+    }
+
+    // max_floor := -1.0;
+    // if floors.count == 0 {
+    //     return -1, false;
+    // }
+    // if floors.count > 0 {
+    //     max_floor = floors[0];
+    // }
+
+    // for floor_y: floors {
+    //     max_floor = min(max_floor, floor_y);
+    // }
+    //
+    g_debug.bottom_y = best_y;
+
+    return best_y, best_y != 1000000;
+}
+
+max_floor_at_tile :: (m: *Tilemap, x_left: float, x_right: float, bottom_y: float) -> float, bool {
     eps :: 1.0;
     lx := x_left + eps;
     cx := (x_left + x_right) * 0.5;
@@ -108,21 +190,21 @@ ground_query_under_segment :: (m: *Tilemap, x_left: float, x_right: float, botto
     max_surface_y := -1000000.0;
 
     // Left sample.
-    y, ok := tile_surface_y_at(m, lx, bottom_y);
+    y, ok := tile_floor_y_at(m, lx, bottom_y);
     if ok {
         max_surface_y = y;
         found = true;
     }
 
     // Central sample.
-    y, ok = tile_surface_y_at(m, cx, bottom_y);
+    y, ok = tile_floor_y_at(m, cx, bottom_y);
     if ok {
         max_surface_y = ifx found then max(max_surface_y, y) else y;
         found = true;
     }
 
     // Right sample.
-    y, ok = tile_surface_y_at(m, rx, bottom_y);
+    y, ok = tile_floor_y_at(m, rx, bottom_y);
     if ok {
         max_surface_y = ifx found then max(max_surface_y, y) else y;
         found = true;
@@ -162,4 +244,39 @@ draw_tilemap :: (m: *Tilemap) {
             }
         }
     }
+}
+
+tile_slope_tangent :: (t: Tile_Type) -> Vector2 {
+    if t == {
+        case .SLOPE_UP;
+            return normalize(Vector2.{ -1.0, 1.0 });
+        case .SLOPE_DOWN;
+            return normalize(Vector2.{ 1.0, 1.0 });
+        case;
+            return Vector2.{ 1.0, 0.0 };
+    }
+}
+
+tile_slope_normal :: (tile: Tile_Type) -> Vector2 {
+    if tile == .SLOPE_UP {
+        return Vector2.{ -1.0, -1.0 };
+    } else if tile == .SLOPE_DOWN {
+        return Vector2.{ 1.0, -1.0 };
+    } else {
+        return Vector2.{ 0.0, -1.0 };
+    }
+}
+
+tile_slope_y_at :: (t: Tile_Type, x: float, tx: int, ty: int) -> float {
+    local_x := x - cast(float) (tx * TILE_SIZE);
+
+    if t == .SLOPE_UP {
+        return xx ((ty + 1) * TILE_SIZE) - local_x;
+    } else if t == .SLOPE_DOWN {
+        return xx (ty * TILE_SIZE) + local_x;
+    } else if  t == .SOLID {
+        return xx (ty * TILE_SIZE);
+    }
+
+    return xx ((ty + 1) * TILE_SIZE);
 }

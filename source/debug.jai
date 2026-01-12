@@ -9,6 +9,13 @@ Debug_State :: struct {
     time_scale: float;
 
     show_main_window: bool = true;
+
+    bottom_y: float;
+
+    tx0, ty0: int;
+    tx1, ty1: int;
+
+    on_tile: Tile_Type = .EMPTY;
 }
 
 debug_init :: () {
@@ -59,17 +66,43 @@ debug_draw_ui :: (g: *Game_State) {
     // Velocity.
     y += margin;
     GuiLabel(
-        .{panel.x + padding, y, 200, 20},
+        .{panel.x + padding, y, 300, 20},
         tprint("Player velocity %\0", g.player.velocity).data,
     );
-
 
     // Game mode.
     y += margin;
     GuiLabel(
         .{panel.x + padding, y, 250, 20},
         tprint("Game mode %\0", g.mode).data,
+
     );
+    // bottom y
+    y += margin;
+    GuiLabel(
+        .{panel.x + padding, y, 200, 20},
+        tprint("bottom_y %\0", g_debug.bottom_y).data,
+    );
+
+    // t0
+    y += margin;
+    GuiLabel(
+        .{panel.x + padding, y, 200, 20},
+        tprint("g.player.: %, tx1: %\0", g_debug.tx0, g_debug.tx1).data,
+    );
+    // t1
+    y += margin;
+    GuiLabel(
+        .{panel.x + padding, y, 200, 20},
+        tprint("ty0: %, ty1: %\0", g_debug.ty0, g_debug.ty1).data,
+    );
+
+    // tile type
+    // y += margin;
+    // GuiLabel(
+    //     .{panel.x + padding, y, 200, 20},
+    //     tprint("Tile Type: %\0", g_debug.on_tile).data,
+    // );
 }
 
 debug_draw_game :: (g: *Game_State) {
@@ -80,10 +113,17 @@ debug_draw_game :: (g: *Game_State) {
 
 debug_draw_colliders :: (g: *Game_State) {
     // Draw player's collider.
-    DrawRectangleRec(g.player.collider, Fade(RED, 0.1));
+    DrawRectangleRec(player_collider(*g.player), Fade(RED, 0.1));
 
     // Draw player's pivot.
-    DrawCircle(xx g.player.position.x, xx (g.player.position.y + g.player.collider.height * 0.5) , 1, Fade(RED, 0.9));
+    DrawCircle(xx g.player.position.x, xx g.player.position.y, 1, Fade(RED, 0.9));
+
+    for tile_x: g_debug.tx0..g_debug.tx1 {
+        for tile_y: g_debug.ty0..g_debug.ty1 {
+            rect := Rectangle.{xx (tile_x * TILE_SIZE), xx (tile_y * TILE_SIZE), xx TILE_SIZE, xx TILE_SIZE};
+            DrawRectangleRec(rect, Fade(BLUE, 0.1));
+        }
+    }
 }
 
 #scope_file

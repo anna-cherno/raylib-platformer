@@ -47,7 +47,7 @@ main :: () {
     data_folder = join(base_path, "assets");
 
     InitWindow(window_width, window_height, "Game about seeding stuff");
-    SetTargetFPS(60);
+    SetTargetFPS(75);
 
     target := LoadRenderTexture(xx VIRTUAL_WIDTH, xx VIRTUAL_HEIGHT);
     SetTextureFilter(target.texture, .TEXTURE_FILTER_POINT);
@@ -56,7 +56,7 @@ main :: () {
     editor_init(*g_editor, *g_game);
     debug_init();
 
-    world := world_create("hello", 100, 50);
+    world := world_create("hello", 25, 20);
     game_set_world(*g_game, *world);
 
     while (!WindowShouldClose()) {

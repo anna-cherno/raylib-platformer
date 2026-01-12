@@ -5,6 +5,7 @@ Game_State :: struct {
     world: World;
     camera: Camera2D;
     mode: Game_Mode = .PLAY;
+    time_scale := 1.0;
 }
 
 Game_Mode :: enum {
@@ -13,7 +14,7 @@ Game_Mode :: enum {
 }
 
 game_init :: (g: *Game_State) {
-    player_init(*g.player, .{100, 300});
+    player_init(*g.player, .{200, 100});
 
     // Init camera.
     g.camera.zoom = 1;
@@ -25,6 +26,7 @@ game_init :: (g: *Game_State) {
 }
 
 game_update :: (g: *Game_State, dt: float) {
+    dt *= g.time_scale;
     player_update(*g.player, *g.world, dt);
     clamp_camera(*g.camera, g.player.position, .{ xx VIRTUAL_WIDTH, xx VIRTUAL_HEIGHT, g.world.bounds.width, g.world.bounds.height});
 }

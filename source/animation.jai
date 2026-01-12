@@ -64,7 +64,7 @@ animation_draw :: (anim: *Animation, pos: Vector2, flipped: bool) {
         src.width = -src.width;
     }
     dst := Rectangle.{ pos.x, pos.y, xx anim.frame_width, xx anim.frame_height };
-    origin := Vector2.{dst.width * 0.5, dst.height * 0.5};
+    origin := Vector2.{dst.width * 0.5, dst.height };
 
     DrawTexturePro(anim.texture, src, dst, origin, 0, WHITE);
 }

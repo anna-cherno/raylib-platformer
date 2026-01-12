@@ -55,14 +55,16 @@ editor_draw_overlays :: (e: *Editor_State) {
     rect := Rectangle.{ tile_x * TILE_SIZE, tile_y * TILE_SIZE, xx TILE_SIZE, xx TILE_SIZE };
 
     DrawRectangleLinesEx(rect, 1.1, RED);
+    DrawText(tprint("%, %\0", tile_x, tile_y).data, xx (tile_x * TILE_SIZE), xx (tile_y * TILE_SIZE), 1, BLACK);
 }
 
 editor_draw_ui :: (e: *Editor_State) {
     anchor := Vector2.{ 5, 5 };
 
-    GuiPanel(.{ anchor.x, anchor.y, 192, 200 }, "Editor");
+    GuiPanel(.{ anchor.x, anchor.y, 192, 220 }, "Editor");
     GuiListView(.{ anchor.x + 8, anchor.y + 24, 176, 128 }, "NONE;SOLID;SLOPE_UP;SLOPE_DOWN", null, cast(*s32) *e.selected_tile);
     GuiCheckBox(.{ anchor.x + 8, anchor.y + 160, 24, 24 }, "Show grid", *e.show_grid);
+    GuiSlider(  .{ anchor.x + 8, anchor.y + 190, 120, 24 }, null, "Time scale", *e.game.time_scale, 0.1, 1.0);
 }
 
 editor_mouse_tile :: (e: *Editor_State) -> Vector2 {
