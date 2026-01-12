@@ -19,8 +19,8 @@ game_init :: (g: *Game_State) {
     // Init camera.
     g.camera.zoom = 1;
     g.camera.offset = .{
-        cast(float)(VIRTUAL_WIDTH * 0.5),
-        cast(float)(VIRTUAL_HEIGHT * 0.5),
+        xx (VIRTUAL_WIDTH * 0.5),
+        xx (VIRTUAL_HEIGHT * 0.5),
     };
     g.camera.target = g.player.position;
 }
@@ -36,7 +36,7 @@ game_set_world :: (g: *Game_State, world: *World) {
 }
 
 game_draw :: (g: *Game_State) {
-    ClearBackground(RAYWHITE);
+    ClearBackground(BLACK);
     BeginMode2D(g.camera);
         draw_bounds(g.world.bounds);
         draw_tilemap(*g.world.tilemap);

@@ -22,7 +22,7 @@ HPIXELS :: 400;
 VIRTUAL_WIDTH  :: HPIXELS;
 VIRTUAL_HEIGHT :: HPIXELS / ASPECT;
 
-SCALE :: 4;
+SCALE :: 3;
 
 window_width := cast(s32) VIRTUAL_WIDTH * SCALE;
 window_height := cast(s32) VIRTUAL_HEIGHT * SCALE;

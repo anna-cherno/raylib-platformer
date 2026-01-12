@@ -64,7 +64,7 @@ editor_draw_ui :: (e: *Editor_State) {
     GuiPanel(.{ anchor.x, anchor.y, 192, 220 }, "Editor");
     GuiListView(.{ anchor.x + 8, anchor.y + 24, 176, 128 }, "NONE;SOLID;SLOPE_UP;SLOPE_DOWN", null, cast(*s32) *e.selected_tile);
     GuiCheckBox(.{ anchor.x + 8, anchor.y + 160, 24, 24 }, "Show grid", *e.show_grid);
-    GuiSlider(  .{ anchor.x + 8, anchor.y + 190, 120, 24 }, null, "Time scale", *e.game.time_scale, 0.1, 1.0);
+    GuiSlider(.{ anchor.x + 8, anchor.y + 190, 120, 24 }, null, "Time scale", *e.game.time_scale, 0.1, 1.0);
 }
 
 editor_mouse_tile :: (e: *Editor_State) -> Vector2 {
@@ -91,6 +91,4 @@ camera_update :: (camera: *Camera2D, bounds: Rectangle) {
         after := GetScreenToWorld2D(mouse_screen, camera.*);
         camera.target += before - after;
     }
-
-    // clamp_camera(camera, camera.target, bounds);
 }
