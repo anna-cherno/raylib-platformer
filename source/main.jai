@@ -14,6 +14,7 @@
 #load "world.jai";
 #load "draw.jai";
 #load "tiles.jai";
+#load "seed.jai";
 #load "debug.jai";
 
 ASPECT  :: 16.0 / 10.0;
@@ -35,10 +36,10 @@ g_editor: Editor_State;
 g_input: Input_State;
 g_debug: Debug_State = .{
     enabled = true,
-    show_colliders = true,
+    show_player_colliders = true,
+    show_world_colliders = true,
     show_camera = false,
     show_entity_info = false,
-    slow_motion = false,
     time_scale = 1.0
 };
 
@@ -52,12 +53,13 @@ main :: () {
     target := LoadRenderTexture(xx VIRTUAL_WIDTH, xx VIRTUAL_HEIGHT);
     SetTextureFilter(target.texture, .TEXTURE_FILTER_POINT);
 
+    // Init systems.
     game_init(*g_game);
     editor_init(*g_editor, *g_game);
     debug_init();
 
-    world := world_create("hello", 25, 20);
-    game_set_world(*g_game, *world);
+    // Create world.
+    g_game.world = world_create("hello", 50, 20);
 
     while (!WindowShouldClose()) {
         input_update(*g_input);
@@ -99,6 +101,7 @@ main :: () {
         reset_temporary_storage();
     }
 
+    world_destroy(*g_game.world);
     game_shutdown(*g_game);
     CloseWindow();
 }

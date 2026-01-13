@@ -1,21 +1,20 @@
 Debug_State :: struct {
     enabled: bool;
 
-    show_colliders: bool;
     show_camera: bool;
     show_entity_info: bool;
+    show_player_colliders: bool;
+    show_world_colliders: bool;
 
-    slow_motion: bool;
     time_scale: float;
 
     show_main_window: bool = true;
 
     bottom_y: float;
 
-    tx0, ty0: int;
-    tx1, ty1: int;
-
     on_tile: Tile_Type = .EMPTY;
+
+    seed_len: int;
 }
 
 debug_init :: () {
@@ -36,8 +35,13 @@ debug_draw_ui :: (g: *Game_State) {
 
     GuiPanel(panel, "DEBUG");
 
+    // World colliders.
     y := panel.y + margin;
-    GuiCheckBox(.{panel.x + padding, y, 20, 20}, "Show colliders", *g_debug.show_colliders);
+    GuiCheckBox(.{panel.x + padding, y, 20, 20}, "Show world colliders", *g_debug.show_world_colliders);
+
+    // Player colliders.
+    y += margin;
+    GuiCheckBox(.{panel.x + padding, y, 20, 20}, "Show player colliders", *g_debug.show_player_colliders);
 
     // Player position.
     y += margin;
@@ -84,46 +88,62 @@ debug_draw_ui :: (g: *Game_State) {
         tprint("bottom_y %\0", g_debug.bottom_y).data,
     );
 
-    // t0
+    // Seed len.
     y += margin;
     GuiLabel(
         .{panel.x + padding, y, 200, 20},
-        tprint("g.player.: %, tx1: %\0", g_debug.tx0, g_debug.tx1).data,
+        tprint("Seed len: %\0", g_game.world.seeds.count).data,
     );
-    // t1
-    y += margin;
-    GuiLabel(
-        .{panel.x + padding, y, 200, 20},
-        tprint("ty0: %, ty1: %\0", g_debug.ty0, g_debug.ty1).data,
-    );
-
-    // tile type
-    // y += margin;
-    // GuiLabel(
-    //     .{panel.x + padding, y, 200, 20},
-    //     tprint("Tile Type: %\0", g_debug.on_tile).data,
-    // );
 }
 
 debug_draw_game :: (g: *Game_State) {
-    if g_debug.show_colliders {
-        debug_draw_colliders(g);
+    if g_debug.show_world_colliders {
+        debug_draw_world_colliders(*g.world);
+    }
+    if g_debug.show_player_colliders {
+        debug_draw_player_colliders(*g.player);
     }
 }
 
-debug_draw_colliders :: (g: *Game_State) {
-    // Draw player's collider.
-    DrawRectangleRec(player_collider(*g.player), Fade(RED, 0.1));
+debug_draw_world_colliders :: (w: *World) {
+    for y: 0..w.t_height-1 {
+        for x: 0..w.t_width-1 {
+            idx := tile_index(x, y, w.t_width);
+            t := w.collisions[idx];
 
-    // Draw player's pivot.
-    DrawCircle(xx g.player.position.x, xx g.player.position.y, 1, Fade(RED, 0.9));
+            if t == .EMPTY continue;
 
-    for tile_x: g_debug.tx0..g_debug.tx1 {
-        for tile_y: g_debug.ty0..g_debug.ty1 {
-            rect := Rectangle.{xx (tile_x * TILE_SIZE), xx (tile_y * TILE_SIZE), xx TILE_SIZE, xx TILE_SIZE};
-            DrawRectangleRec(rect, Fade(BLUE, 0.1));
+            color := DARKBLUE;
+
+            top    := cast(float) y * TILE_SIZE;
+            bottom := cast(float) (y * TILE_SIZE) + TILE_SIZE;
+            left   := cast(float) x * TILE_SIZE;
+            right  := cast(float) (x * TILE_SIZE) + TILE_SIZE;
+
+            if t == {
+                case .SOLID;
+                    DrawRectangle(xx (x * TILE_SIZE), xx (y * TILE_SIZE), TILE_SIZE, TILE_SIZE, color);
+                case .SLOPE_UP;
+                    v1 := Vector2.{ left, bottom };
+                    v2 := Vector2.{ right, bottom };
+                    v3 := Vector2.{ right, top };
+                    DrawTriangle(v1, v2, v3, color);
+                case .SLOPE_DOWN;
+                    v1 := Vector2.{ left, bottom };
+                    v2 := Vector2.{ right, bottom };
+                    v3 := Vector2.{ left, top };
+                    DrawTriangle(v1, v2, v3, color);
+            }
         }
     }
+}
+
+debug_draw_player_colliders :: (p: *Player) {
+    // Draw player's collider.
+    DrawRectangleRec(player_collider(p), Fade(RED, 0.1));
+
+    // Draw player's pivot.
+    DrawCircle(xx p.position.x, xx p.position.y, 1, Fade(RED, 0.9));
 }
 
 #scope_file

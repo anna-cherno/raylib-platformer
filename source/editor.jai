@@ -2,7 +2,7 @@ Editor_State :: struct {
     camera: Camera2D;
     game: *Game_State;
 
-    selected_tile: Tile_Type;
+    selected_tile: Collision_Type;
     show_grid: bool = true;
 }
 
@@ -21,13 +21,13 @@ editor_update :: (e: *Editor_State, dt: float) {
 
     tile := editor_mouse_tile(e);
     if tile.x < 0 || tile.y < 0 return;
-    if xx tile.x >= e.game.world.tilemap.width return;
-    if xx tile.y >= e.game.world.tilemap.height return;
+    if xx tile.x >= e.game.world.t_width return;
+    if xx tile.y >= e.game.world.t_height return;
 
-    idx := tile_index(*e.game.world.tilemap, xx tile.x, xx tile.y);
+    idx := tile_index(xx tile.x, xx tile.y, e.game.world.t_width);
 
     if g_input.mouse_left_down {
-        e.game.world.tilemap.tiles[idx] = e.selected_tile;
+        e.game.world.collisions[idx] = e.selected_tile;
     }
 }
 
@@ -35,12 +35,14 @@ editor_draw :: (e: *Editor_State) {
     ClearBackground(BLACK);
     BeginMode2D(e.camera);
         draw_bounds(e.game.world.bounds);
+        world_draw(*e.game.world);
         if e.show_grid {
             draw_grid(e.game.world.bounds);
         }
-        player_draw(*e.game.player);
-        draw_tilemap(*e.game.world.tilemap);
         debug_draw_game(e.game);
+
+        player_draw(*e.game.player);
+
         editor_draw_overlays(e);
     EndMode2D();
 

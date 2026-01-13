@@ -144,7 +144,7 @@ player_update :: (p: *Player, world: *World, dt: float) {
 
     blocked := false;
     for ty: min_y .. max_y {
-        tile := tile_at(*world.tilemap, tx, ty);
+        tile := collision_at(tx, ty, world);
         if tile == .SOLID {
             blocked = true;
             break;
@@ -171,10 +171,9 @@ player_update :: (p: *Player, world: *World, dt: float) {
     found := false;
     skin :: 1.0;
     for ty: min_y .. max_y {
-        tile := tile_at(*world.tilemap, tx, ty);
-        g_debug.on_tile = tile;
-        if tile != .EMPTY {
-            floor_y := tile_slope_y(tile, next.x, tx, ty);
+        collision := collision_at(tx, ty, world);
+        if collision != .EMPTY {
+            floor_y := collision_floor_y(collision, next.x, tx, ty);
             if floor_y < best_y - skin {
                 best_y = floor_y;
                 found = true;

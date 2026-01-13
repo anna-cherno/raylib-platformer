@@ -5,6 +5,8 @@ Input_State :: struct {
 
     mouse_left_down: bool;
     mouse_right_down: bool;
+
+    seed: bool;
 }
 
 input_update :: (is: *Input_State) {
@@ -20,6 +22,8 @@ input_update :: (is: *Input_State) {
 
     is.mouse_left_down = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
     is.mouse_right_down = IsMouseButtonDown(MOUSE_RIGHT_BUTTON);
+
+    is.seed = IsKeyPressed(.KEY_E);
 }
 
 to_virtual_coords :: inline (pos: Vector2) -> Vector2 {

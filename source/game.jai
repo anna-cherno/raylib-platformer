@@ -28,23 +28,18 @@ game_init :: (g: *Game_State) {
 game_update :: (g: *Game_State, dt: float) {
     dt *= g.time_scale;
     player_update(*g.player, *g.world, dt);
+    world_update(*g.world, dt);
     clamp_camera(*g.camera, g.player.position, .{ xx VIRTUAL_WIDTH, xx VIRTUAL_HEIGHT, g.world.bounds.width, g.world.bounds.height});
-}
-
-game_set_world :: (g: *Game_State, world: *World) {
-    g.world = world;
 }
 
 game_draw :: (g: *Game_State) {
     ClearBackground(BLACK);
     BeginMode2D(g.camera);
-        draw_bounds(g.world.bounds);
-        draw_tilemap(*g.world.tilemap);
-        player_draw(*g.player);
-
+        world_draw(*g.world);
         if g_debug.enabled {
             debug_draw_game(g);
         }
+        player_draw(*g.player);
     EndMode2D();
 }
 
