@@ -2,6 +2,7 @@
 #import "String";
 #import "System";
 #import "Math";
+#import "Random";
 #import "raylib";
 
 #load "assets.jai";
@@ -23,7 +24,7 @@ HPIXELS :: 400;
 VIRTUAL_WIDTH  :: HPIXELS;
 VIRTUAL_HEIGHT :: HPIXELS / ASPECT;
 
-SCALE :: 3;
+SCALE :: 4;
 
 window_width := cast(s32) VIRTUAL_WIDTH * SCALE;
 window_height := cast(s32) VIRTUAL_HEIGHT * SCALE;
@@ -59,7 +60,7 @@ main :: () {
     debug_init();
 
     // Create world.
-    g_game.world = world_create("hello", 50, 20);
+    g_game.world = world_create("hello", 250, 100);
 
     while (!WindowShouldClose()) {
         input_update(*g_input);
@@ -109,6 +110,9 @@ main :: () {
 toggle_mode :: () {
     if g_game.mode == .PLAY {
         g_game.mode = .EDITOR;
+        g_editor.camera.zoom = SCALE;
+        g_editor.camera.offset.x = xx (window_width / 2);
+        g_editor.camera.offset.y = xx (window_height / 2);
         g_editor.camera.target = g_game.player.position;
     } else if g_game.mode == .EDITOR {
         g_game.mode = .PLAY;

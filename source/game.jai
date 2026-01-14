@@ -27,6 +27,10 @@ game_init :: (g: *Game_State) {
 
 game_update :: (g: *Game_State, dt: float) {
     dt *= g.time_scale;
+    if g_input.seed {
+        seed_create(*g.world, g_game.player.position);
+    }
+
     player_update(*g.player, *g.world, dt);
     world_update(*g.world, dt);
     clamp_camera(*g.camera, g.player.position, .{ xx VIRTUAL_WIDTH, xx VIRTUAL_HEIGHT, g.world.bounds.width, g.world.bounds.height});

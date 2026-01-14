@@ -2,7 +2,7 @@ TILE_SIZE : s32 : 16;
 
 Tilemap :: struct {
     width, height: int;
-    tiles: [..]Tile_Type;
+    tiles: [..]Tile_ID;
     visible: bool;
 }
 
@@ -14,11 +14,13 @@ Collision_Type :: enum {
     ONE_WAY_UP;
 }
 
-Tile_Type :: enum {
+Tile_ID :: u16;
+
+Tile_Type :: enum u16 {
     EMPTY;
-    SOLID;
-    SLOPE_UP;
-    SLOPE_DOWN;
+    BRANCH;
+    SEED;
+    GROUND;
 }
 
 tilemap_create :: (width: int, height: int) -> Tilemap {
@@ -82,9 +84,7 @@ tilemap_draw :: (m: *Tilemap) {
             idx := tile_index(x, y, m.width);
             t := m.tiles[idx];
 
-            if t == .EMPTY continue;
-
-            color := DARKBLUE;
+            if t == xx Tile_Type.EMPTY then continue;
 
             top := cast(float) y * TILE_SIZE;
             bottom := cast(float) (y * TILE_SIZE) + TILE_SIZE;
@@ -92,18 +92,12 @@ tilemap_draw :: (m: *Tilemap) {
             right := cast(float) (x * TILE_SIZE) + TILE_SIZE;
 
             if t == {
-                case .SOLID;
-                    DrawRectangle(xx (x * TILE_SIZE), xx (y * TILE_SIZE), TILE_SIZE, TILE_SIZE, color);
-                case .SLOPE_UP;
-                    v1 := Vector2.{ left, bottom };
-                    v2 := Vector2.{ right, bottom };
-                    v3 := Vector2.{ right, top };
-                    DrawTriangle(v1, v2, v3, color);
-                case .SLOPE_DOWN;
-                    v1 := Vector2.{ left, bottom };
-                    v2 := Vector2.{ right, bottom };
-                    v3 := Vector2.{ left, top };
-                    DrawTriangle(v1, v2, v3, color);
+                case xx Tile_Type.SEED;
+                    DrawRectangle(xx (x * TILE_SIZE), xx (y * TILE_SIZE), TILE_SIZE, TILE_SIZE, BROWN);
+                case xx Tile_Type.BRANCH;
+                    DrawRectangle(xx (x * TILE_SIZE), xx (y * TILE_SIZE), TILE_SIZE, TILE_SIZE, LIME);
+                case xx Tile_Type.GROUND;
+                    DrawRectangle(xx (x * TILE_SIZE), xx (y * TILE_SIZE), TILE_SIZE, TILE_SIZE, DARKBROWN);
             }
         }
     }

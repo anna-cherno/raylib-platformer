@@ -6,7 +6,7 @@ World :: struct {
 
     collisions: [..]Collision_Type;
     tilemaps:   [..]Tilemap;
-    seeds:     [..]Seed;
+    seeds:      [..]Seed;
 }
 
 // Create a new world.
@@ -20,9 +20,17 @@ world_create :: (name: string, t_width: int, t_height: int) -> World {
 
     // Collision layer.
     array_resize(*w.collisions, t_width * t_height);
+    // Default floor.
+    for x: 0 .. t_width-1 {
+        w.collisions[tile_index(x, t_height-1, t_width)] = .SOLID;
+    }
 
     // Default tile layer.
     array_add(*w.tilemaps, tilemap_create(t_width, t_height));
+    // Default floor.
+    for x: 0 .. t_width-1 {
+        w.tilemaps[0].tiles[tile_index(x, t_height-1, t_width)] = xx Tile_Type.GROUND;
+    }
 
     return w;
 }
@@ -39,13 +47,7 @@ world_destroy :: (w: *World) {
 }
 
 world_update :: (w: *World, dt: float) {
-    if g_input.seed {
-        world_new_seed(w, g_game.player.position.x, g_game.player.position.y-1);
-    }
-
-    for *s: w.seeds {
-        seed_update(s, w, dt);
-    }
+    seed_update_growth(w, dt);
 }
 
 world_draw :: (w: *World) {
@@ -56,15 +58,12 @@ world_draw :: (w: *World) {
     }
 
     for *s: w.seeds {
-        seed_draw(s);
+        if s.state == .GROWING || s.state == .MATURE {
+            seed_draw(s);
+        }
     }
 }
 
-world_new_seed :: (w: *World, x: float, y: float) {
-    // tx := world_to_tile_x(x);
-    // ty := world_to_tile_y(y);
-    // t := tile_index(*w.seeds.tiles, tx, ty);
-    // if w.tilemap.tiles[t] == .SOLID {
-    //     array_add(*w.seeds, Seed.{tx = tx, ty = ty});
-    // }
+world_valid_growth :: (w: *World, tx: int, ty: int) -> bool {
+    return collision_at(tx, ty, w) == .EMPTY;
 }
