@@ -3,6 +3,7 @@ TILE_SIZE : s32 : 16;
 Tilemap :: struct {
     width, height: int;
     tiles: [..]Tile_ID;
+    tileset: Texture2D;
     visible: bool;
 }
 

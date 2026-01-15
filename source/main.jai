@@ -48,6 +48,7 @@ main :: () {
     base_path := path_strip_filename(get_path_of_running_executable());
     data_folder = join(base_path, "assets");
 
+    SetConfigFlags(.FLAG_WINDOW_HIGHDPI);
     InitWindow(window_width, window_height, "Game about seeding stuff");
     SetTargetFPS(75);
 

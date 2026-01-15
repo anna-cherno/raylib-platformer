@@ -27,10 +27,14 @@ world_create :: (name: string, t_width: int, t_height: int) -> World {
 
     // Default tile layer.
     array_add(*w.tilemaps, tilemap_create(t_width, t_height));
+    // Load tileset assets.
+    w.tilemaps[0].tileset = load_texture("tileset.png");
+
     // Default floor.
     for x: 0 .. t_width-1 {
         w.tilemaps[0].tiles[tile_index(x, t_height-1, t_width)] = xx Tile_Type.GROUND;
     }
+
 
     return w;
 }
