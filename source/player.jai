@@ -65,7 +65,8 @@ player_init :: (p: *Player, start_pos: Vector2) {
     p.width = p.size.x * 0.34;
     p.height = p.size.y;
 
-    p.texture = load_texture("player_sprite.png");
+    ok := false;
+    ok, p.texture = table_find(*g_assets.textures, "player_sprite.png");
 
     p.anim_idle = animation_create(*p.texture, 3, 32, 32, 3, 0.2);
     array_resize(*p.anim_idle.frame_times, 3);
@@ -144,8 +145,7 @@ player_update :: (p: *Player, world: *World, dt: float) {
 
     blocked := false;
     for ty: min_y .. max_y {
-        tile := collision_at(tx, ty, world);
-        if tile == .SOLID {
+        if collision_at(tx, ty, *world.tilemaps[0]) == .SOLID {
             blocked = true;
             break;
         }
@@ -171,9 +171,9 @@ player_update :: (p: *Player, world: *World, dt: float) {
     found := false;
     skin :: 1.0;
     for ty: min_y .. max_y {
-        collision := collision_at(tx, ty, world);
-        if collision != .EMPTY {
-            floor_y := collision_floor_y(collision, next.x, tx, ty);
+        col := collision_at(tx, ty, *world.tilemaps[0]);
+        if col != .EMPTY {
+            floor_y := collision_floor_y(col, next.x, tx, ty);
             if floor_y < best_y - skin {
                 best_y = floor_y;
                 found = true;

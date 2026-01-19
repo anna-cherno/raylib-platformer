@@ -1,13 +1,13 @@
 Debug_State :: struct {
-    enabled: bool;
+    enabled := true;
 
-    show_camera: bool;
-    show_entity_info: bool;
-    show_player_colliders: bool;
-    show_world_colliders: bool;
+    show_camera := true;
+    show_entity_info := true;
+    show_player_colliders := true;
+    show_world_colliders := true;
 
-    time_scale: float;
-    seed_len: int;
+    time_scale := true;
+    seed_len := 0;
 }
 
 debug_init :: () {
@@ -83,15 +83,14 @@ debug_draw_game :: (g: *Game_State) {
 }
 
 debug_draw_world_colliders :: (w: *World) {
-    for y: 0..w.t_height-1 {
-        for x: 0..w.t_width-1 {
-            idx := tile_index(x, y, w.t_width);
-            t := w.collisions[idx];
-            if t == .EMPTY continue;
+    // for y: 0..w.t_height-1 {
+    //     for x: 0..w.t_width-1 {
+    //         col := collision_at(x, y, *w.tilemaps[0]);
+    //         if col == .EMPTY continue;
 
-            debug_draw_collider(t, x, y);
-        }
-    }
+    //         debug_draw_collider(col, x, y);
+    //     }
+    // }
 }
 
 debug_draw_collider :: (col: Collision_Type, tx: int, ty: int) {

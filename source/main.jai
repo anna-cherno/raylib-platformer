@@ -32,36 +32,29 @@ window_height := cast(s32) VIRTUAL_HEIGHT * SCALE;
 data_folder : string;
 
 // Global states.
+g_assets: Assets;
 g_game: Game_State;
 g_editor: Editor_State;
 g_input: Input_State;
-g_debug: Debug_State = .{
-    enabled = true,
-    show_player_colliders = true,
-    show_world_colliders = true,
-    show_camera = false,
-    show_entity_info = false,
-    time_scale = 1.0
-};
+g_debug: Debug_State;
 
 main :: () {
     base_path := path_strip_filename(get_path_of_running_executable());
     data_folder = join(base_path, "assets");
 
     SetConfigFlags(.FLAG_WINDOW_HIGHDPI);
-    InitWindow(window_width, window_height, "Game about seeding stuff");
+    InitWindow(window_width, window_height, "Seed");
     SetTargetFPS(75);
 
     target := LoadRenderTexture(xx VIRTUAL_WIDTH, xx VIRTUAL_HEIGHT);
     SetTextureFilter(target.texture, .TEXTURE_FILTER_POINT);
 
     // Init systems.
+    assets_init();
     game_init(*g_game);
+    g_game.world = world_create("hello", 250, 100);
     editor_init(*g_editor, *g_game);
     debug_init();
-
-    // Create world.
-    g_game.world = world_create("hello", 250, 100);
 
     while (!WindowShouldClose()) {
         input_update(*g_input);

@@ -1,10 +1,23 @@
+
 TILE_SIZE : s32 : 16;
 
 Tilemap :: struct {
     width, height: int;
-    tiles: [..]Tile_ID;
-    tileset: Texture2D;
     visible: bool;
+    tiles: [..]int;
+    tileset: *Tileset;
+}
+
+Tileset :: struct {
+    width, height: int;
+    tile_size: int;
+    texture: *Texture2D;
+    tiles: [..]Tile;
+}
+
+Tile :: struct {
+    sprite: int; // index
+    collision: Collision_Type;
 }
 
 Collision_Type :: enum {
@@ -24,9 +37,18 @@ Tile_Type :: enum u16 {
     GROUND;
 }
 
-tilemap_create :: (width: int, height: int) -> Tilemap {
-    tilemap := Tilemap.{width = width, height = height, visible = true};
+tilemap_create :: (width: int, height: int, tileset: *Tileset) -> Tilemap {
+    tilemap := Tilemap.{
+        width = width,
+        height = height,
+        visible = true,
+        tileset = tileset,
+    };
     array_resize(*tilemap.tiles, width * height);
+    for i: 0..tilemap.tiles.count-1 {
+        tilemap.tiles[i] = -1;
+    }
+
     return tilemap;
 }
 
@@ -41,19 +63,26 @@ tile_index :: inline (tx: int, ty: int, t_width: int) -> int {
     return ty * t_width + tx;
 }
 
-collision_at :: (tx: int, ty: int, w: *World) -> Collision_Type {
-    if tx < 0 || tx >= w.t_width || ty < 0 || ty >= w.t_height {
+tile_coords :: inline (index: int, t_width: int) -> int, int {
+    return index % t_width, index / t_width;
+}
+
+collision_at :: (tx: int, ty: int, tm: *Tilemap) -> Collision_Type {
+    if tx < 0 || tx >= tm.width || ty < 0 || ty >= tm.height {
         return .SOLID; // bounds of tile is solid
     }
-    return w.collisions[tile_index(tx, ty, w.t_width)];
+    t := tm.tiles[tile_index(tx, ty, tm.width)];
+    if t < 0 return .EMPTY;
+
+    return tm.tileset.tiles[t].collision;
 }
 
 world_to_tile_x :: inline (x: float) -> int {
-    return cast(int) floor(x / TILE_SIZE);
+    return xx floor(x / TILE_SIZE);
 }
 
 world_to_tile_y :: inline (y: float) -> int {
-    return cast(int) floor(y / TILE_SIZE);
+    return xx floor(y / TILE_SIZE);
 }
 
 collision_floor_y :: (col: Collision_Type, world_x: float, tx: int, ty: int) -> float {
@@ -85,56 +114,100 @@ tilemap_draw :: (m: *Tilemap) {
             idx := tile_index(x, y, m.width);
             t := m.tiles[idx];
 
-            if t == xx Tile_Type.EMPTY then continue;
+            if t < 0 then continue;
 
             top := cast(float) y * TILE_SIZE;
             bottom := cast(float) (y * TILE_SIZE) + TILE_SIZE;
             left := cast(float) x * TILE_SIZE;
             right := cast(float) (x * TILE_SIZE) + TILE_SIZE;
 
-            if t == {
-                case xx Tile_Type.SEED;
-                    DrawRectangle(xx (x * TILE_SIZE), xx (y * TILE_SIZE), TILE_SIZE, TILE_SIZE, BROWN);
-                case xx Tile_Type.BRANCH;
-                    DrawRectangle(xx (x * TILE_SIZE), xx (y * TILE_SIZE), TILE_SIZE, TILE_SIZE, LIME);
-                case xx Tile_Type.GROUND;
-                    DrawRectangle(xx (x * TILE_SIZE), xx (y * TILE_SIZE), TILE_SIZE, TILE_SIZE, DARKBROWN);
-            }
+            tx, ty := tile_coords(t, m.tileset.texture.width / TILE_SIZE);
+            src := Rectangle.{ xx (tx * TILE_SIZE), xx (ty * TILE_SIZE), xx TILE_SIZE, xx TILE_SIZE };
+            dst := Rectangle.{left, top, right - left, bottom - top};
+
+            DrawTexturePro(m.tileset.texture, src, dst, .{0, 0}, 0, WHITE);
         }
     }
 }
 
-// tile_slope_tangent :: (t: Tile_Type) -> Vector2 {
-//     if t == {
-//         case .SLOPE_UP;
-//             return normalize(Vector2.{ -1.0, 1.0 });
-//         case .SLOPE_DOWN;
-//             return normalize(Vector2.{ 1.0, 1.0 });
-//         case;
-//             return Vector2.{ 1.0, 0.0 };
-//     }
-// }
+TILESET_VER   :: 1;
 
-// tile_slope_normal :: (tile: Tile_Type) -> Vector2 {
-//     if tile == .SLOPE_UP {
-//         return Vector2.{ -1.0, -1.0 };
-//     } else if tile == .SLOPE_DOWN {
-//         return Vector2.{ 1.0, -1.0 };
-//     } else {
-//         return Vector2.{ 0.0, -1.0 };
-//     }
-// }
+save_tileset_data :: (ts: *Tileset, path: string) {
+    filename := tprint("%/%.tileset", data_folder, path);
+    builder: String_Builder;
 
-// tile_slope_y_at :: (t: Tile_Type, x: float, tx: int, ty: int) -> float {
-//     local_x := x - cast(float) (tx * TILE_SIZE);
+    print_to_builder(*builder, "[%]\n", TILESET_VER);
+    print_to_builder(*builder, "%\n", ts.tile_size);
+    print_to_builder(*builder, "%\n\n", ts.tiles.count);
 
-//     if t == .SLOPE_UP {
-//         return xx ((ty + 1) * TILE_SIZE) - local_x;
-//     } else if t == .SLOPE_DOWN {
-//         return xx (ty * TILE_SIZE) + local_x;
-//     } else if  t == .SOLID {
-//         return xx (ty * TILE_SIZE);
-//     }
+    for t: ts.tiles {
+        print_to_builder(*builder, "% ", cast(s32) t.collision);
+    }
 
-//     return xx ((ty + 1) * TILE_SIZE);
-// }
+    write_entire_file(filename, *builder);
+}
+
+read_tileset_data :: (ts: *Tileset, filename: string) {
+    handler: Text_File_Handler;
+    defer deinit(*handler);
+
+    filepath := tprint("%/%", data_folder, filename);
+    found, short_name := split_from_right(filepath, #char "/");
+    if !found {
+        print("File % not found", filename);
+        return;
+    }
+
+    start_file(*handler, short_name, filepath, false);
+    if handler.failed return;
+
+    // read tile size.
+    line: string;
+
+    line, found = consume_next_line(*handler);
+    if !found {
+        print("Failed to read tile size");
+        return;
+    }
+    ts.tile_size, found = parse_int(*line);
+    if !found {
+        print("Failed to parse tile size");
+        return;
+    }
+
+    // read tiles count
+    line, found = consume_next_line(*handler);
+    if !found {
+        print("Failed to read tiles count");
+        return;
+    }
+    tiles_count: int;
+    tiles_count, found = parse_int(*line);
+    if !found {
+        print("Failed to parse tile size");
+        return;
+    }
+
+    // array_free(ts.tiles);
+    // array_resize(*ts.tiles, tiles_count);
+
+    line, found = consume_next_line(*handler);
+    if !found {
+        print("Failed to read tile data");
+        return;
+    }
+
+    for i: 0..tiles_count-2 {
+        // c := line[0];
+        c := string_to_int(line);
+        ts.tiles[i].sprite = i;
+        ts.tiles[i].collision = xx c;
+        advance(*line, 2);
+    }
+
+}
+
+#scope_file
+
+#import "File";
+#import "Text_File_Handler";

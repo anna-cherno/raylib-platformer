@@ -41,11 +41,10 @@ Seed_Type :: enum {
 seed_create :: (w: *World, pos: Vector2) {
     tx := world_to_tile_x(pos.x);
     ty := world_to_tile_y(pos.y);
-    if tx < 0 || tx >= w.t_width || ty < 0 || ty >= w.t_height {
+    if tx < 0 || tx >= w.tilemaps[0].width || ty < 0 || ty >= w.tilemaps[0].height {
         return;
     }
-    idx := tile_index(tx, ty, w.t_width);
-    if w.collisions[idx] == .SOLID {
+    if collision_at(tx, ty, *w.tilemaps[0]) == .SOLID {
         array_add(*w.seeds, Seed.{tx = tx, ty = ty, state = .GROWING, type = .LIVE});
     }
 }
@@ -120,8 +119,7 @@ directions : [4]Vector2 : .[
     ny := node.ty + dy;
 
     if world_valid_growth(w, nx, ny) {
-        idx := tile_index(nx, ny, w.t_width);
-        w.collisions[idx] = .SOLID;
+        idx := tile_index(nx, ny, w.tilemaps[0].width);
         w.tilemaps[0].tiles[idx] = xx Tile_Type.BRANCH;
 
         node.tx = nx;
@@ -150,10 +148,10 @@ directions : [4]Vector2 : .[
          nx := tx + cast(int)directions[i].x;
          ny := ty + cast(int)directions[i].y;
          if world_valid_growth(w, nx, ny) {
-             idx := tile_index(nx, ny, w.t_width);
-             if w.tilemaps[0].tiles[idx] == xx Tile_Type.BRANCH {
-                 count += 1;
-             }
+             idx := tile_index(nx, ny, w.tilemaps[0].width);
+             // if w.tilemaps[0].tiles[idx].sprite == xx Tile_Type.BRANCH {
+             //     count += 1;
+             // }
          }
      }
 
