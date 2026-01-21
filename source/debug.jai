@@ -8,6 +8,7 @@ Debug_State :: struct {
 
     time_scale := true;
     seed_len := 0;
+    plant_pos: Vector2i;
 }
 
 debug_init :: () {
@@ -71,6 +72,13 @@ debug_draw_ui :: (g: *Game_State) {
         .{debug_rec.x + padding, y, 200, 20},
         tprint("Seed length: %\0", g_game.world.seeds.count).data,
     );
+
+    // Plant pos.
+    y += margin;
+    GuiLabel(
+        .{debug_rec.x + padding, y, 200, 20},
+        tprint("Plant pos: %\0", g_debug.plant_pos).data,
+    );
 }
 
 debug_draw_game :: (g: *Game_State) {
@@ -79,6 +87,10 @@ debug_draw_game :: (g: *Game_State) {
     }
     if g_debug.show_player_colliders {
         debug_draw_player_colliders(*g.player);
+    }
+
+    if g_debug.plant_pos.x > 0 && g_debug.plant_pos.y > 0 {
+        DrawRectangle(g_debug.plant_pos.x * TILE_SIZE, g_debug.plant_pos.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, Fade(RED, 0.5));
     }
 }
 

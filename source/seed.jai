@@ -1,159 +1,130 @@
 Seed :: struct {
-    tx, ty: int;
-    type: Seed_Type = .LINEAR_UP;
-    state: Seed_State;
+    head_pos: Vector2i;
+    head_dir: Vector2i;
 
-    age: float;
-    growth_step: float = 0.2;
-    total_steps: int;
-    max_total_steps := 10;
-    max_depth := 10;
+    orig_pos: Vector2i;
+    orig_dir: Vector2i;
 
-    nodes: [..]Growth_Node;
+    prefer_x: bool;
+    energy: int;
+    max_energy: int = 3;
+
+    grow_timer: float;
+    grow_time: float = 0.2;
+
+    nodes: [..]Vector2i;
+    active: bool;
 }
 
-Growth_Node :: struct {
-    tx, ty: int;
-    direction: int;
-    depth: int;
-    max_depth := 10;
+seed_plant :: (world: *World, pos: Vector2i, dir: Vector2i) -> Seed, bool {
+    if !tile_is_solid(*world.tilemaps[0], pos) then return Seed.{}, false;
+    if has_any_seed_at(world, pos) then return Seed.{}, false;
 
-    age: float;
-    growth_step: float = 0.2;
-
-    parent_seed: *Seed;
+    seed := Seed.{
+        head_pos = pos,
+        head_dir = dir,
+        orig_pos = pos,
+        orig_dir = dir,
+        max_energy = 3,
+        active = true,
+    };
+    return seed, true;
 }
 
-Seed_State :: enum {
-    NONE;
-    SEEDED;
-    GROWING;
-    MATURE;
-    DEAD;
-}
-
-Seed_Type :: enum {
-    LINEAR_UP;
-    BRANCHING_TREE;
-    LIVE;
-}
-
-seed_create :: (w: *World, pos: Vector2) {
-    tx := world_to_tile_x(pos.x);
-    ty := world_to_tile_y(pos.y);
-    if tx < 0 || tx >= w.tilemaps[0].width || ty < 0 || ty >= w.tilemaps[0].height {
+seed_step :: (seed: *Seed, world: *World, dt: float) {
+    if !seed.active then return;
+    if seed.energy >= seed.max_energy {
+        seed.head_dir = .{0, 0};
+        seed.active = false;
         return;
     }
-    if collision_at(tx, ty, *w.tilemaps[0]) == .SOLID {
-        array_add(*w.seeds, Seed.{tx = tx, ty = ty, state = .GROWING, type = .LIVE});
+
+    seed.grow_timer += dt;
+    if seed.grow_timer < seed.grow_time then return;
+    seed.grow_timer = 0;
+
+    next_dir := normalize_to_axis(seed);
+    next_pos := seed.head_pos + next_dir;
+
+    other, found := seed_at_any_node(world, next_pos, seed);
+    if found {
+        other.head_dir += next_dir;
+        if abs(next_dir.x) > abs(next_dir.y) {
+            other.prefer_x = true;
+        } else {
+            other.prefer_x = false;
+        }
+
+        other.max_energy += seed.max_energy - seed.energy;
+        seed.head_pos = other.head_pos;
+        seed.active = false;
+        other.active = true;
+        return;
+    }
+
+    if tile_is_empty(*world.tilemaps[0], next_pos) {
+        array_add(*seed.nodes, next_pos);
+        seed.head_pos = next_pos;
+        seed.energy += 1;
+    } else {
+        // seed.active = false;
     }
 }
 
-seed_update_growth :: (w: *World, dt: float) {
-    for *seed: w.seeds {
-        if seed.state != .GROWING then continue;
-
-        seed.age += dt;
-
-        // Init first node.
-        if seed.age < seed.growth_step && seed.nodes.count == 0 {
-            initial_node := Growth_Node.{
-                tx = seed.tx, ty = seed.ty,
-                direction = 0,
-                growth_step = seed.growth_step,
-                parent_seed = seed,
-            };
-            array_add(*seed.nodes, initial_node);
+has_any_seed_at :: (world: *World, pos: Vector2i) -> bool {
+    for *seed: world.seeds {
+        if seed.orig_pos == pos {
+            return true;
         }
-
-        // Handle every node.
-        for *node, i : seed.nodes {
-            if node.age >= 0 {
-                process_growth_node(w, node, dt);
-            } else {
-                array_unordered_remove_by_index(*seed.nodes, i);
-            }
-        }
-
-        if seed.nodes.count == 0 {
-            seed.state = .MATURE;
-        }
-
     }
+
+    return false;
+}
+
+seed_at_any_node :: (world: *World, pos: Vector2i, ignore: *Seed) -> *Seed, bool {
+    for *seed: world.seeds {
+        if seed == ignore then continue;
+
+        if seed.head_pos == pos then return seed, true;
+        for node_pos: seed.nodes {
+            if node_pos == pos then return seed, true;
+        }
+    }
+
+    return null, false;
+}
+
+seed_place_tile :: (w: *World, pos: Vector2i) {
+    if pos.x < 0 || pos.x >= w.tilemaps[0].width || pos.y < 0 || pos.y >= w.tilemaps[0].height {
+        return;
+    }
+    w.tilemaps[0].tiles[tile_index(pos.x, pos.y, w.tilemaps[0].width)] = SEED_TILE_ID;
 }
 
 seed_draw :: (s: *Seed) {
-    if s.state == {
-        case .GROWING;
-            DrawRectangle(xx s.tx * TILE_SIZE, xx s.ty * TILE_SIZE, TILE_SIZE, TILE_SIZE, Fade(RED, s.age / s.growth_step));
-        case .MATURE;
-            DrawRectangle(xx s.tx * TILE_SIZE, xx s.ty * TILE_SIZE, TILE_SIZE, TILE_SIZE, RED);
+    DrawCircleV(.{ xx (s.orig_pos.x * TILE_SIZE + TILE_SIZE / 2.0), xx (s.orig_pos.y * TILE_SIZE + TILE_SIZE / 2.0) }, 2.0, RED);
+
+    for node_pos: s.nodes {
+        DrawRectangleV(.{ xx (node_pos.x * TILE_SIZE + TILE_SIZE / 4.0), xx (node_pos.y * TILE_SIZE + TILE_SIZE / 4.0) }, .{ xx TILE_SIZE / 2.0, xx TILE_SIZE / 2.0 }, LIME);
     }
 }
 
-directions : [4]Vector2 : .[
-    .{0, -1},
-    .{1, 0},
-    .{0, 1},
-    .{-1, 0},
- ];
+#scope_file
 
- process_growth_node :: (w: *World, node: *Growth_Node, dt: float) {
-    node.age += dt;
 
-    if node.age < node.growth_step then return;
-    if node.parent_seed.total_steps > node.parent_seed.max_total_steps {
-        node.age = -1.0;
-        return;
-    }
-    if node.depth >= node.parent_seed.max_depth {
-        node.age = -1.0;
-        return;
+normalize_to_axis :: (s: *Seed) -> Vector2i {
+    d := s.head_dir;
+    if abs(d.x) + abs(d.y) == 1 {
+        return d;
     }
 
-    node.age -= node.growth_step;
-
-    dx := cast(int) directions[node.direction].x;
-    dy := cast(int) directions[node.direction].y;
-    nx := node.tx + dx;
-    ny := node.ty + dy;
-
-    if world_valid_growth(w, nx, ny) {
-        idx := tile_index(nx, ny, w.tilemaps[0].width);
-        w.tilemaps[0].tiles[idx] = xx Tile_Type.BRANCH;
-
-        node.tx = nx;
-        node.ty = ny;
-
-        node.parent_seed.total_steps += 1;
-
-        if node.depth < node.max_depth && random_get_zero_to_one() <= 0.1 {
-            // Left.
-            left_node := Growth_Node.{tx = nx, ty = ny, direction = (node.direction + 1) % 4, depth = node.depth + 1, parent_seed = node.parent_seed };
-            array_add(*node.parent_seed.nodes, left_node);
-
-            // Right.
-            right_node := Growth_Node.{tx = nx, ty = ny, direction = (node.direction + 3) % 4, depth = node.depth + 1, parent_seed = node.parent_seed };
-            array_add(*node.parent_seed.nodes, right_node);
-        }
+    step: Vector2i;
+    if s.prefer_x {
+        step = Vector2i.{ sign(d.x), 0 };
     } else {
-        node.age = -1.0;
+        step = Vector2i.{ 0, sign(d.y) };
     }
- }
 
- count_live_neighbors :: (w: *World, tx: int, ty: int) -> int {
-     count := 0;
-
-     for i: 0..3 {
-         nx := tx + cast(int)directions[i].x;
-         ny := ty + cast(int)directions[i].y;
-         if world_valid_growth(w, nx, ny) {
-             idx := tile_index(nx, ny, w.tilemaps[0].width);
-             // if w.tilemaps[0].tiles[idx].sprite == xx Tile_Type.BRANCH {
-             //     count += 1;
-             // }
-         }
-     }
-
-     return count;
- }
+    s.prefer_x = !s.prefer_x;
+    return step;
+}

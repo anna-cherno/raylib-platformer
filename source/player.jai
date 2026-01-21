@@ -261,13 +261,3 @@ choose_movement_state :: (p: *Player) -> Player_State {
 
     return ifx abs(p.velocity.x) > 0.1 then .RUN else .IDLE;
 }
-
-sign :: inline (x: $T/.[float32, float64]) -> T {
-    if x > 0.0 return 1.0;
-    if x < 0.0 return -1.0;
-    return 0.0;
-}
-
-sign :: inline (using v: Vector2) -> Vector2 {
-    return .{ sign(x), sign(y) };
-}

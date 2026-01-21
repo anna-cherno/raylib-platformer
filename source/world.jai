@@ -31,7 +31,9 @@ world_destroy :: (w: *World) {
 }
 
 world_update :: (w: *World, dt: float) {
-    seed_update_growth(w, dt);
+    for *s: w.seeds {
+        seed_step(s, w, dt);
+    }
 }
 
 world_draw :: (w: *World) {
@@ -42,12 +44,6 @@ world_draw :: (w: *World) {
     }
 
     for *s: w.seeds {
-        if s.state == .GROWING || s.state == .MATURE {
-            seed_draw(s);
-        }
+        seed_draw(s);
     }
-}
-
-world_valid_growth :: (w: *World, tx: int, ty: int) -> bool {
-    return collision_at(tx, ty, *w.tilemaps[0]) == .EMPTY;
 }

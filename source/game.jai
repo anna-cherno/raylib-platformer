@@ -14,7 +14,7 @@ Game_Mode :: enum {
 }
 
 game_init :: (g: *Game_State) {
-    player_init(*g.player, .{200, 100});
+    player_init(*g.player, .{200, 1600});
 
     // Init camera.
     g.camera.zoom = 1;
@@ -27,8 +27,11 @@ game_init :: (g: *Game_State) {
 
 game_update :: (g: *Game_State, dt: float) {
     dt *= g.time_scale;
-    if g_input.seed {
-        seed_create(*g.world, g_game.player.position);
+
+    if g_input.plant_seed {
+        plant_pos := world_to_tile(g.player.position + .{ xx g_input.plant_direction.x, xx g_input.plant_direction.y - 1.0 });
+        dir := -g_input.plant_direction;
+        array_add(*g.world.seeds, seed_plant(*g.world, plant_pos, dir));
     }
 
     player_update(*g.player, *g.world, dt);

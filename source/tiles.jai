@@ -30,12 +30,7 @@ Collision_Type :: enum {
 
 Tile_ID :: u16;
 
-Tile_Type :: enum u16 {
-    EMPTY;
-    BRANCH;
-    SEED;
-    GROUND;
-}
+SEED_TILE_ID :: 10;
 
 tilemap_create :: (width: int, height: int, tileset: *Tileset) -> Tilemap {
     tilemap := Tilemap.{
@@ -67,6 +62,23 @@ tile_coords :: inline (index: int, t_width: int) -> int, int {
     return index % t_width, index / t_width;
 }
 
+tile_is_solid :: (tm: *Tilemap, pos: Vector2i) -> bool {
+    return collision_at(pos.x, pos.y, tm) == .SOLID;
+}
+
+tile_is_empty :: (tm: *Tilemap, pos: Vector2i) -> bool {
+    return collision_at(pos.x, pos.y, tm) == .EMPTY;
+}
+
+tile_is_seed :: (tm: *Tilemap, pos: Vector2i) -> bool {
+    idx := tile_index(pos.x, pos.y, tm.width);
+    if idx < 0 || idx >= tm.width * tm.height {
+        return false;
+    }
+    return tm.tiles[idx] == SEED_TILE_ID;
+}
+
+
 collision_at :: (tx: int, ty: int, tm: *Tilemap) -> Collision_Type {
     if tx < 0 || tx >= tm.width || ty < 0 || ty >= tm.height {
         return .SOLID; // bounds of tile is solid
@@ -77,11 +89,15 @@ collision_at :: (tx: int, ty: int, tm: *Tilemap) -> Collision_Type {
     return tm.tileset.tiles[t].collision;
 }
 
-world_to_tile_x :: inline (x: float) -> int {
+world_to_tile :: inline (pos: Vector2) -> Vector2i {
+    return .{ world_to_tile_x(pos.x), world_to_tile_y(pos.y) };
+}
+
+world_to_tile_x :: inline (x: float) -> s32 {
     return xx floor(x / TILE_SIZE);
 }
 
-world_to_tile_y :: inline (y: float) -> int {
+world_to_tile_y :: inline (y: float) -> s32 {
     return xx floor(y / TILE_SIZE);
 }
 
