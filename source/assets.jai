@@ -6,15 +6,16 @@ Assets :: struct {
 }
 
 assets_init :: () {
-    load_texture("player_sprite.png");
-    tileset_texture := load_texture("tilesets/default.png");
+    load_texture("player", "textures/player.png");
+    tileset_texture := load_texture("tileset", "textures/tileset.png");
 
     tileset := load_tileset("default", tileset_texture, 16);
-    read_tileset_data(tileset, "tilesets/default.tileset");
+    read_tileset_data(tileset, "tilesets/tileset.data");
+
+    load_style("editor/style_genesis.rgs");
 }
 
 assets_unload :: () {
-    // Unload textures.
     for tex: g_assets.textures {
         UnloadTexture(tex);
     }
@@ -25,29 +26,35 @@ assets_unload :: () {
     deinit(*g_assets.textures);
 }
 
-load_texture :: (path: string) -> *Texture2D {
+load_texture :: (name: string, path: string) -> *Texture2D {
     found, texture := table_find(*g_assets.textures, path);
     if found then return *texture;
 
     filename := tprint("%/%", data_folder, path);
     texture = LoadTexture(filename.data);
 
-    return table_set(*g_assets.textures, path, texture);
+    return table_set(*g_assets.textures, name, texture);
 }
 
 load_tileset :: (name: string, tex: *Texture2D, tile_size: int) -> *Tileset {
     tileset := New(Tileset);
     tileset.tile_size = tile_size;
-    tileset.width = tex.width / tile_size;
-    tileset.height = tex.height / tile_size;
-    array_resize(*tileset.tiles, tileset.width * tileset.height);
-    for *t, i: tileset.tiles {
-        t.sprite = i;
-        t.collision = .SOLID;
+    tileset.rows = tex.width / tile_size;
+    tileset.cols = tex.height / tile_size;
+
+    array_resize(*tileset.collisions, tileset.rows * tileset.cols);
+
+    for i: 0..tileset.collisions.count-1 {
+        tileset.collisions[i] = .SOLID;
     }
     tileset.texture = tex;
 
     // Set asset into hash_table.
     table_set(*g_assets.tilesets, name, tileset);
     return tileset;
+}
+
+load_style :: (name : string) {
+    filename := tprint("%/%", data_folder, name);
+    GuiLoadStyle(filename.data);
 }

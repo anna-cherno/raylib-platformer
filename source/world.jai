@@ -1,49 +1,101 @@
 World :: struct {
-    name:   string;
-    bounds: Rectangle;
+    levels: [..]*Level;
+    current_level: int;
+}
+
+Level :: struct {
+    name: string;
+    rect: Rectangle;
 
     tilemaps: [..]Tilemap;
     seeds:    [..]Seed;
+    entities: [..]Entity;
+
+    active := true;
 }
 
 // Create a new world.
-world_create :: (name: string, t_width: int, t_height: int) -> World {
-    w := World.{
-        name = name,
-        bounds = {0, 0, xx (t_width * TILE_SIZE), xx (t_height * TILE_SIZE)},
-    };
+world_create :: () -> *World {
+    world := New(World);
 
-    // Default tile layer.
-    _, tileset := table_find(*g_assets.tilesets, "default");
-    array_add(*w.tilemaps, tilemap_create(t_width, t_height, tileset));
+    // Create initial level.
+    array_add(*world.levels, level_create("level_01", 50, 25));
+    world.current_level = 0;
 
-    return w;
+    return world;
 }
 
 // Destroy a world.
-world_destroy :: (w: *World) {
-    for *t: w.tilemaps {
-        tilemap_destroy(t);
+world_destroy :: (world: *World) {
+    world.current_level = 0;
+
+    for l: world.levels {
+        level_destroy(l);
     }
 
-    array_free(w.seeds);
-    array_free(w.tilemaps);
+    free(world);
 }
 
 world_update :: (w: *World, dt: float) {
-    for *s: w.seeds {
-        seed_step(s, w, dt);
+    for l: w.levels {
+        if l.active then level_update(l, dt);
     }
 }
 
-world_draw :: (w: *World) {
-    draw_bounds(w.bounds);
+world_draw :: (w: *World, camera: Camera2D) {
+    for l: w.levels {
+        if l.active then level_draw(l, camera);
+    }
+}
 
-    for *t: w.tilemaps {
-        tilemap_draw(t);
+level_create :: (name: string, rows: int, cols: int) -> *Level {
+    level := New(Level);
+    level.name = "default";
+    level.rect = {0, 0, xx (rows * TILE_SIZE), xx (cols * TILE_SIZE)};
+
+    // Default tile layer.
+    ok, tileset := table_find(*g_assets.tilesets, "default");
+    if ok {
+        array_add(*level.tilemaps, tilemap_create(rows, cols, tileset));
     }
 
-    for *s: w.seeds {
+    return level;
+}
+
+level_destroy :: (level: *Level) {
+    array_free(level.seeds);
+    array_free(level.tilemaps);
+    array_free(level.entities);
+
+    free(level);
+}
+
+level_update :: (level: *Level, dt: float) {
+    for *s: level.seeds {
+        seed_step(s, level, dt);
+    }
+}
+
+level_draw :: (level: *Level, camera: Camera2D) {
+    draw_bounds(level.rect);
+
+    top_left     := GetScreenToWorld2D(.{0, 0}, camera);
+    bottom_right := GetScreenToWorld2D(.{xx window_width, xx window_height}, camera);
+
+    size  := cast(float) TILE_SIZE;
+    start := Vector2i.{ xx floor(top_left.x / size), xx floor(top_left.y / size) };
+    end   := Vector2i.{ xx floor(bottom_right.x / size), xx floor(bottom_right.y / size) };
+
+    start.x = clamp(start.x, 0, cast(s32) floor(level.rect.width / size));
+    start.y = clamp(start.y, 0, cast(s32) floor(level.rect.height / size));
+    end.x = clamp(end.x, 0, cast(s32) floor(level.rect.width / size));
+    end.y = clamp(end.y, 0, cast(s32) floor(level.rect.height / size));
+
+    for *t: level.tilemaps {
+        tilemap_draw(t, start, end);
+    }
+
+    for *s: level.seeds {
         seed_draw(s);
     }
 }

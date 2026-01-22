@@ -1,8 +1,8 @@
 GRAVITY :: 0.363281*60*60;
 
 Game_State :: struct {
+    world: *World;
     player: Player;
-    world: World;
     camera: Camera2D;
     mode: Game_Mode = .PLAY;
     time_scale := 1.0;
@@ -14,7 +14,7 @@ Game_Mode :: enum {
 }
 
 game_init :: (g: *Game_State) {
-    player_init(*g.player, .{200, 1600});
+    player_init(*g.player, .{200, 100});
 
     // Init camera.
     g.camera.zoom = 4;
@@ -23,6 +23,9 @@ game_init :: (g: *Game_State) {
         xx (window_height * 0.5),
     };
     g.camera.target = g.player.position;
+
+    // Create default world.
+    g.world = world_create();
 }
 
 game_update :: (g: *Game_State, dt: float) {
@@ -30,6 +33,7 @@ game_update :: (g: *Game_State, dt: float) {
 
     dt *= g.time_scale;
 
+    level := g.world.levels[g.world.current_level];
     if action.plant {
         skin := -1.0;
         if action.plant_dir.y < 0 {
@@ -38,27 +42,27 @@ game_update :: (g: *Game_State, dt: float) {
         plant_pos := world_to_tile(g.player.position + .{ xx action.plant_dir.x, xx action.plant_dir.y + skin});
         g_debug.plant_pos = plant_pos;
         dir := -action.plant_dir;
-        seed, ok := seed_plant(*g.world, plant_pos, dir);
+        seed, ok := seed_plant(level, plant_pos, dir);
         if ok && g.player.seeds_left > 0 {
-            array_add(*g.world.seeds, seed);
+            array_add(*level.seeds, seed);
             g.player.seeds_left -= 1;
         }
     }
 
     if action.remove_all_seeds {
-        array_reset(*g.world.seeds);
+        array_reset(*level.seeds);
         g.player.seeds_left = g.player.seeds_max;
     }
 
-    player_update(*g.player, *g.world, dt);
-    world_update(*g.world, dt);
-    clamp_camera(*g.camera, g.player.position, .{ xx window_width, xx window_height, g.world.bounds.width, g.world.bounds.height});
+    player_update(*g.player, level, dt);
+    world_update(g.world, dt);
+    clamp_camera(*g.camera, g.player.position, .{ xx window_width, xx window_height, level.rect.width, level.rect.height});
 }
 
 game_draw :: (g: *Game_State) {
     ClearBackground(BLACK);
     BeginMode2D(g.camera);
-        world_draw(*g.world);
+        world_draw(g.world, g.camera);
         if g_debug.enabled {
             debug_draw_game(g);
         }
@@ -68,6 +72,8 @@ game_draw :: (g: *Game_State) {
 
 game_shutdown :: (g: *Game_State) {
     player_unload(*g.player);
+
+    world_destroy(g.world);
 }
 
 clamp_camera :: (camera: *Camera2D, position: Vector2, bounds: Rectangle) {

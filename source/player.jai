@@ -78,7 +78,11 @@ player_init :: (p: *Player, start_pos: Vector2) {
     p.height = p.size.y;
 
     ok := false;
-    ok, p.texture = table_find(*g_assets.textures, "player_sprite.png");
+    ok, p.texture = table_find(*g_assets.textures, "player");
+    if !ok {
+        log_error("Failed to find player texture");
+        return;
+    }
 
     p.anim_idle = animation_create(*p.texture, 3, 32, 32, 3, 0.2);
     array_resize(*p.anim_idle.frame_times, 3);
@@ -91,7 +95,7 @@ player_init :: (p: *Player, start_pos: Vector2) {
     p.current_anim = *p.anim_idle;
 }
 
-player_update :: (p: *Player, world: *World, dt: float) {
+player_update :: (p: *Player, level: *Level, dt: float) {
     // Input and timers.
     action := player_collect_action();
     direction := action.move;
@@ -159,7 +163,7 @@ player_update :: (p: *Player, world: *World, dt: float) {
 
     blocked := false;
     for ty: min_y .. max_y {
-        if collision_at(tx, ty, *world.tilemaps[0]) == .SOLID {
+        if collision_at(tx, ty, *level.tilemaps[0]) == .SOLID {
             blocked = true;
             break;
         }
@@ -188,7 +192,7 @@ player_update :: (p: *Player, world: *World, dt: float) {
         best_floor_y := FLOAT32_INFINITY;
         found_floor := false;
         for ty: min_y .. max_y {
-            col := collision_at(tx, ty, *world.tilemaps[0]);
+            col := collision_at(tx, ty, *level.tilemaps[0]);
             if col != .EMPTY {
                 floor_y := collision_floor_y(col, next.x, tx, ty);
                 if floor_y < best_floor_y - skin {
@@ -216,7 +220,7 @@ player_update :: (p: *Player, world: *World, dt: float) {
         best_ceil_y := -FLOAT32_INFINITY;
         found_ceil := false;
         for ty: min_y .. max_y {
-            col := collision_at(tx, ty, *world.tilemaps[0]);
+            col := collision_at(tx, ty, *level.tilemaps[0]);
             if col != .EMPTY {
                 ceil_y := collision_ceil_y(col, next.x, tx, ty);
                 if ceil_y > best_ceil_y + skin {

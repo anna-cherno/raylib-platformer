@@ -13,7 +13,6 @@ Debug_State :: struct {
 }
 
 debug_init :: () {
-    load_style("style_genesis.rgs");
     // GuiSetStyle(xx GuiControl.DEFAULT, xx GuiDefaultProperty.TEXT_SIZE, 10);
 }
 
@@ -66,31 +65,17 @@ debug_draw_ui :: (g: *Game_State) {
         tprint("Game mode %\0", g.mode).data,
 
     );
-
-    // Seed len.
-    y += margin;
-    GuiLabel(
-        .{debug_rec.x + padding, y, 200, 20},
-        tprint("Seed length: %\0", g_game.world.seeds.count).data,
-    );
-
-    // Plant pos.
-    y += margin;
-    GuiLabel(
-        .{debug_rec.x + padding, y, 200, 20},
-        tprint("Plant pos: %\0", g_debug.plant_pos).data,
-    );
 }
 
 debug_draw_game :: (g: *Game_State) {
     if g_debug.show_world_colliders {
-        debug_draw_world_colliders(*g.world);
+        debug_draw_world_colliders(g.world);
     }
     if g_debug.show_player_colliders {
         debug_draw_player_colliders(*g.player);
     }
     if g_debug.show_grid {
-        draw_grid(g.world.bounds);
+        draw_grid(g.world.levels[g.world.current_level].rect);
     }
 
     if g_debug.plant_pos.x > 0 && g_debug.plant_pos.y > 0 {
@@ -139,11 +124,4 @@ debug_draw_player_colliders :: (p: *Player) {
 
     // Draw player's pivot.
     DrawCircle(xx p.position.x, xx p.position.y, 1, Fade(RED, 0.9));
-}
-
-#scope_file
-
-load_style :: (name : string) {
-    filename := tprint("%/%", data_folder, name);
-    GuiLoadStyle(filename.data);
 }

@@ -1,23 +1,41 @@
-
 TILE_SIZE : s32 : 16;
 
-Tilemap :: struct {
-    width, height: int;
-    visible: bool;
-    tiles: [..]int;
-    tileset: *Tileset;
+Tileset :: struct {
+    cols, rows: int;
+    tile_size:  int;
+
+    texture: *Texture2D;
+    collisions: [..]Collision_Type;
+
+    rules: [..]Tile_Rule;
 }
 
-Tileset :: struct {
+Tilemap :: struct {
+    tileset: *Tileset;
+
+    collisions:    [..]Collision_Type;
+    auto_tiles:    [..]s32;
+    // manual_tiles:  [..]u16;
+
     width, height: int;
-    tile_size: int;
-    texture: *Texture2D;
-    tiles: [..]Tile;
+    active := true;
 }
 
 Tile :: struct {
-    sprite: int; // index
+    sprite: int; // index from tileset
     collision: Collision_Type;
+    flipped: bool;
+}
+
+Collision_Map :: struct {
+    width, height: int;
+    data: [..]Collision_Type;
+}
+
+Tile_Rule :: struct {
+    input: u8;
+    mask: u16;
+    output_ids: [..] s32;
 }
 
 Collision_Type :: enum {
@@ -28,20 +46,15 @@ Collision_Type :: enum {
     ONE_WAY_UP;
 }
 
-Tile_ID :: u16;
+tilemap_create :: (rows: int, cols: int, tileset: *Tileset) -> Tilemap {
+    tilemap := Tilemap.{ width = rows, height = cols, tileset = tileset };
 
-SEED_TILE_ID :: 10;
+    size := rows * cols;
+    array_resize(*tilemap.auto_tiles, size);
+    array_resize(*tilemap.collisions, size);
 
-tilemap_create :: (width: int, height: int, tileset: *Tileset) -> Tilemap {
-    tilemap := Tilemap.{
-        width = width,
-        height = height,
-        visible = true,
-        tileset = tileset,
-    };
-    array_resize(*tilemap.tiles, width * height);
-    for i: 0..tilemap.tiles.count-1 {
-        tilemap.tiles[i] = -1;
+    for i: 0..tilemap.auto_tiles.count-1 {
+        tilemap.auto_tiles[i] = -1;
     }
 
     return tilemap;
@@ -50,8 +63,9 @@ tilemap_create :: (width: int, height: int, tileset: *Tileset) -> Tilemap {
 tilemap_destroy :: (tilemap: *Tilemap) {
     tilemap.width = 0;
     tilemap.height = 0;
-    tilemap.visible = false;
-    array_free(tilemap.tiles);
+    tilemap.active = false;
+    array_free(tilemap.collisions);
+    array_free(tilemap.auto_tiles);
 }
 
 tile_index :: inline (tx: int, ty: int, t_width: int) -> int {
@@ -70,23 +84,15 @@ tile_is_empty :: (tm: *Tilemap, pos: Vector2i) -> bool {
     return collision_at(pos.x, pos.y, tm) == .EMPTY;
 }
 
-tile_is_seed :: (tm: *Tilemap, pos: Vector2i) -> bool {
-    idx := tile_index(pos.x, pos.y, tm.width);
-    if idx < 0 || idx >= tm.width * tm.height {
-        return false;
-    }
-    return tm.tiles[idx] == SEED_TILE_ID;
-}
-
-
 collision_at :: (tx: int, ty: int, tm: *Tilemap) -> Collision_Type {
     if tx < 0 || tx >= tm.width || ty < 0 || ty >= tm.height {
         return .SOLID; // bounds of tile is solid
     }
-    t := tm.tiles[tile_index(tx, ty, tm.width)];
-    if t < 0 return .EMPTY;
+    return tm.collisions[tile_index(tx, ty, tm.width)];
+    // t := tm.tiles[tile_index(tx, ty, tm.width)];
+    // if t < 0 return .EMPTY;
 
-    return tm.tileset.tiles[t].collision;
+    // return tm.tileset.tiles[t].collision;
 }
 
 world_to_tile :: inline (pos: Vector2) -> Vector2i {
@@ -128,24 +134,24 @@ collision_ceil_y :: (col: Collision_Type, world_x: float, tx: int, ty: int) -> f
     return xx ((ty + 1) * TILE_SIZE);
 }
 
-tilemap_draw :: (m: *Tilemap) {
-    for y: 0..m.height-1 {
-        for x: 0..m.width-1 {
-            idx := tile_index(x, y, m.width);
-            t := m.tiles[idx];
+tilemap_draw :: (tilemap: *Tilemap, start: Vector2i, end: Vector2i) {
+    for y: start.y..end.y-1 {
+        for x: start.x..end.x-1 {
+            idx := tile_index(x, y, tilemap.width);
+            t := tilemap.auto_tiles[idx];
 
             if t < 0 then continue;
 
-            top := cast(float) y * TILE_SIZE;
+            top    := cast(float) y * TILE_SIZE;
             bottom := cast(float) (y * TILE_SIZE) + TILE_SIZE;
-            left := cast(float) x * TILE_SIZE;
-            right := cast(float) (x * TILE_SIZE) + TILE_SIZE;
+            left   := cast(float) x * TILE_SIZE;
+            right  := cast(float) (x * TILE_SIZE) + TILE_SIZE;
 
-            tx, ty := tile_coords(t, m.tileset.texture.width / TILE_SIZE);
+            tx, ty := tile_coords(t, tilemap.tileset.texture.width / TILE_SIZE);
             src := Rectangle.{ xx (tx * TILE_SIZE), xx (ty * TILE_SIZE), xx TILE_SIZE, xx TILE_SIZE };
             dst := Rectangle.{left, top, right - left, bottom - top};
 
-            DrawTexturePro(m.tileset.texture, src, dst, .{0, 0}, 0, WHITE);
+            DrawTexturePro(tilemap.tileset.texture, src, dst, .{0, 0}, 0, WHITE);
         }
     }
 }
@@ -153,15 +159,15 @@ tilemap_draw :: (m: *Tilemap) {
 TILESET_VER :: 1;
 
 save_tileset_data :: (ts: *Tileset, path: string) {
-    filename := tprint("%/%.tileset", data_folder, path);
+    filename := tprint("%/%.data", data_folder, path);
     builder: String_Builder;
 
     print_to_builder(*builder, "[%]\n", TILESET_VER);
     print_to_builder(*builder, "%\n", ts.tile_size);
-    print_to_builder(*builder, "%\n\n", ts.tiles.count);
+    print_to_builder(*builder, "%\n\n", ts.collisions.count);
 
-    for t: ts.tiles {
-        print_to_builder(*builder, "% ", cast(s32) t.collision);
+    for c: ts.collisions {
+        print_to_builder(*builder, "% ", cast(u8) c);
     }
 
     write_entire_file(filename, *builder);
@@ -220,8 +226,8 @@ read_tileset_data :: (ts: *Tileset, filename: string) {
     for i: 0..tiles_count-2 {
         // c := line[0];
         c := string_to_int(line);
-        ts.tiles[i].sprite = i;
-        ts.tiles[i].collision = xx c;
+        ts.collisions[i] = xx c;
+        // ts.tiles[i].collision = xx c;
         advance(*line, 2);
     }
 

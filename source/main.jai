@@ -5,6 +5,7 @@
 #import "Random";
 #import "raylib";
 
+#load "types.jai";
 #load "assets.jai";
 #load "animation.jai";
 #load "entity.jai";
@@ -26,7 +27,7 @@ VIRTUAL_HEIGHT :: HPIXELS / ASPECT;
 
 SCALE :: 4;
 
-window_width := cast(s32) VIRTUAL_WIDTH * SCALE;
+window_width  := cast(s32) VIRTUAL_WIDTH  * SCALE;
 window_height := cast(s32) VIRTUAL_HEIGHT * SCALE;
 
 data_folder : string;
@@ -35,46 +36,26 @@ data_folder : string;
 g_assets: Assets;
 g_game: Game_State;
 g_editor: Editor_State;
-// g_input: Input_State;
 g_debug: Debug_State;
-
-Vector2i :: struct {
-    x, y: s32;
-    #overlay (x) component: [2] s32;
-}
-
-operator + :: (a: Vector2i, b: Vector2i) -> Vector2i {
-    return Vector2i.{ a.x + b.x, a.y + b.y };
-}
-
-operator == :: (a: Vector2i, b: Vector2i) -> bool {
-    return a.x == b.x && a.y == b.y;
-}
-
-operator - :: (a: Vector2i) -> Vector2i {
-    return .{-a.x, -a.y};
-}
 
 main :: () {
     base_path := path_strip_filename(get_path_of_running_executable());
     data_folder = join(base_path, "assets");
 
     SetConfigFlags(.FLAG_WINDOW_HIGHDPI);
-    InitWindow(window_width, window_height, "Seed");
+    InitWindow(window_width, window_height, "Seedo");
     SetTargetFPS(75);
 
-    target := LoadRenderTexture(xx VIRTUAL_WIDTH, xx VIRTUAL_HEIGHT);
-    SetTextureFilter(target.texture, .TEXTURE_FILTER_POINT);
+    // target := LoadRenderTexture(xx VIRTUAL_WIDTH, xx VIRTUAL_HEIGHT);
+    // SetTextureFilter(target.texture, .TEXTURE_FILTER_POINT);
 
     // Init systems.
     assets_init();
     game_init(*g_game);
-    g_game.world = world_create("hello", 250, 100);
     editor_init(*g_editor, *g_game);
     debug_init();
 
     while (!WindowShouldClose()) {
-        // input_update(*g_input);
         debug_update();
         if IsKeyPressed(.KEY_TAB) {
             toggle_mode();
@@ -114,7 +95,6 @@ main :: () {
         reset_temporary_storage();
     }
 
-    world_destroy(*g_game.world);
     game_shutdown(*g_game);
     CloseWindow();
 }

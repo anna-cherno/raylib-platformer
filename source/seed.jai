@@ -16,9 +16,9 @@ Seed :: struct {
     active: bool;
 }
 
-seed_plant :: (world: *World, pos: Vector2i, dir: Vector2i) -> Seed, bool {
-    if !tile_is_solid(*world.tilemaps[0], pos) then return .{}, false;
-    if has_any_seed_at(world, pos) then return .{}, false;
+seed_plant :: (level: *Level, pos: Vector2i, dir: Vector2i) -> Seed, bool {
+    if !tile_is_solid(*level.tilemaps[0], pos) then return .{}, false;
+    if has_any_seed_at(level, pos) then return .{}, false;
 
     seed := Seed.{
         head_pos = pos,
@@ -31,7 +31,7 @@ seed_plant :: (world: *World, pos: Vector2i, dir: Vector2i) -> Seed, bool {
     return seed, true;
 }
 
-seed_step :: (seed: *Seed, world: *World, dt: float) {
+seed_step :: (seed: *Seed, level: *Level, dt: float) {
     if !seed.active then return;
     if seed.energy >= seed.max_energy {
         seed.head_dir = .{0, 0};
@@ -46,7 +46,7 @@ seed_step :: (seed: *Seed, world: *World, dt: float) {
     next_dir := normalize_to_axis(seed);
     next_pos := seed.head_pos + next_dir;
 
-    other, found := seed_at_any_node(world, next_pos, seed);
+    other, found := seed_at_any_node(level, next_pos, seed);
     if found {
         other.head_dir += next_dir;
         if abs(next_dir.x) > abs(next_dir.y) {
@@ -62,7 +62,7 @@ seed_step :: (seed: *Seed, world: *World, dt: float) {
         return;
     }
 
-    if tile_is_empty(*world.tilemaps[0], next_pos) {
+    if tile_is_empty(*level.tilemaps[0], next_pos) {
         array_add(*seed.nodes, next_pos);
         seed.head_pos = next_pos;
         seed.energy += 1;
@@ -71,8 +71,8 @@ seed_step :: (seed: *Seed, world: *World, dt: float) {
     }
 }
 
-has_any_seed_at :: (world: *World, pos: Vector2i) -> bool {
-    for *seed: world.seeds {
+has_any_seed_at :: (level: *Level, pos: Vector2i) -> bool {
+    for *seed: level.seeds {
         if seed.orig_pos == pos {
             return true;
         }
@@ -81,8 +81,8 @@ has_any_seed_at :: (world: *World, pos: Vector2i) -> bool {
     return false;
 }
 
-seed_at_any_node :: (world: *World, pos: Vector2i, ignore: *Seed) -> *Seed, bool {
-    for *seed: world.seeds {
+seed_at_any_node :: (level: *Level, pos: Vector2i, ignore: *Seed) -> *Seed, bool {
+    for *seed: level.seeds {
         if seed == ignore then continue;
 
         if seed.head_pos == pos then return seed, true;
@@ -94,11 +94,12 @@ seed_at_any_node :: (world: *World, pos: Vector2i, ignore: *Seed) -> *Seed, bool
     return null, false;
 }
 
-seed_place_tile :: (w: *World, pos: Vector2i) {
-    if pos.x < 0 || pos.x >= w.tilemaps[0].width || pos.y < 0 || pos.y >= w.tilemaps[0].height {
+seed_place_tile :: (level: *Level, pos: Vector2i) {
+    if pos.x < 0 || pos.x >= level.tilemaps[0].width || pos.y < 0 || pos.y >= level.tilemaps[0].height {
         return;
     }
-    w.tilemaps[0].tiles[tile_index(pos.x, pos.y, w.tilemaps[0].width)] = SEED_TILE_ID;
+    idx := tile_index(pos.x, pos.y, level.tilemaps[0].width);
+    level.tilemaps[0].collisions[idx] = .SOLID;
 }
 
 seed_draw :: (s: *Seed) {

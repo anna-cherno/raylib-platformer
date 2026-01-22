@@ -3,8 +3,8 @@ Editor_State :: struct {
     game: *Game_State;
 
     selected_collision: Collision_Type;
-    selected_tile: int;
-    hovered_tile: int;
+    selected_tile: s32;
+    hovered_tile: s32;
     show_grid: bool = true;
     mouse_inside_editor: bool = false;
 
@@ -15,12 +15,6 @@ Editor_State :: struct {
     tileset_rect: Rectangle;
 
     save_pressed: bool;
-}
-
-Editor_Tileset :: struct {
-    texture: *Texture2D;
-    t_width, t_height: int;
-    rect: Rectangle;
 }
 
 editor_init :: (e: *Editor_State, g: *Game_State) {
@@ -37,39 +31,43 @@ editor_init :: (e: *Editor_State, g: *Game_State) {
 
     _, e.tileset = table_find(*g_assets.tilesets, "default");
     e.tileset_rect = .{ e.bottom_panel.x + 5, e.bottom_panel.y + 25, xx e.tileset.texture.width, xx e.tileset.texture.height };
-    e.selected_collision = e.tileset.tiles[0].collision;
+    e.selected_collision = e.tileset.collisions[0];
 }
 
 editor_update :: (e: *Editor_State, dt: float) {
-    camera_update(*e.camera, .{ xx window_width, xx window_height, g_game.world.bounds.width * 2, g_game.world.bounds.height * 2});
+    level := e.game.world.levels[e.game.world.current_level];
+    camera_update(*e.camera, .{ xx window_width, xx window_height, level.rect.width * 2, level.rect.height * 2});
 
     mouse_pos := GetMousePosition();
     e.mouse_inside_editor = CheckCollisionPointRec(mouse_pos, e.left_panel) || CheckCollisionPointRec(mouse_pos, e.bottom_panel);
+
     if e.mouse_inside_editor {
         // if mouse over tileset.
         if CheckCollisionPointRec(mouse_pos, e.tileset_rect) {
             tx := world_to_tile_x(mouse_pos.x - e.tileset_rect.x);
             ty := world_to_tile_y(mouse_pos.y - e.tileset_rect.y);
-            e.hovered_tile = tile_index(tx, ty, xx (e.tileset_rect.width / TILE_SIZE));
+            e.hovered_tile = xx tile_index(tx, ty, xx (e.tileset_rect.width / TILE_SIZE));
             if IsMouseButtonDown(MOUSE_LEFT_BUTTON) {
                 e.selected_tile = e.hovered_tile;
-                e.selected_collision = e.tileset.tiles[e.selected_tile].collision;
+                e.selected_collision = e.tileset.collisions[e.selected_tile];
             }
         }
     } else {
         tx, ty := editor_mouse_tile(e.camera, mouse_pos);
-        if tx < 0 || ty < 0 || tx >= e.game.world.tilemaps[0].width || ty >= e.game.world.tilemaps[0].height then return;
-        idx := tile_index(tx, ty, e.game.world.tilemaps[0].width);
+        if tx < 0 || ty < 0 || tx >= level.tilemaps[0].width || ty >= level.tilemaps[0].height then return;
+        idx := tile_index(tx, ty, level.tilemaps[0].width);
         if IsMouseButtonDown(MOUSE_LEFT_BUTTON) {
-            e.game.world.tilemaps[0].tiles[idx] = e.selected_tile;
+            level.tilemaps[0].auto_tiles[idx] = e.selected_tile;
+            level.tilemaps[0].collisions[idx] = e.selected_collision;
         }
         if IsMouseButtonDown(MOUSE_RIGHT_BUTTON) {
-            e.game.world.tilemaps[0].tiles[idx] = -1;
+            level.tilemaps[0].collisions[idx] = .EMPTY;
+            level.tilemaps[0].auto_tiles[idx] = -1;
         }
     }
 
     if e.save_pressed {
-        save_tileset_data(e.tileset, "tilesets/default");
+        save_tileset_data(e.tileset, "tilesets/tileset");
     }
 }
 
@@ -77,8 +75,7 @@ editor_draw :: (e: *Editor_State) {
     ClearBackground(BLACK);
 
     BeginMode2D(e.camera);
-        draw_bounds(e.game.world.bounds);
-        world_draw(*e.game.world);
+        world_draw(e.game.world, e.camera);
         debug_draw_game(e.game);
 
         player_draw(*e.game.player);
@@ -102,10 +99,7 @@ editor_draw_overlays :: (e: *Editor_State) {
 }
 
 editor_draw_ui :: (e: *Editor_State) {
-    // World's name.
-    GuiStatusBar(.{0, 0, xx window_width, 40.0}, tprint("World: %\0", e.game.world.name).data);
-
-    DrawRectangleLinesEx(.{0, 40, xx window_width, xx window_height - 40.0}, 5.0, GOLD);
+    DrawRectangleLinesEx(.{0, 40, xx window_width, xx window_height}, 5.0, GOLD);
 
     draw_left_panel(e);
     draw_bottom_panel(e);
@@ -174,7 +168,7 @@ draw_bottom_panel :: (e: *Editor_State) {
     DrawRectangleLinesEx(.{ e.tileset_rect.x + tx * TILE_SIZE, e.tileset_rect.y + ty * TILE_SIZE, xx TILE_SIZE, xx TILE_SIZE }, 1.5, GREEN);
 
     anchor.x += e.tileset_rect.width + pad;
-    GuiLabel(.{ anchor.x + pad, y, 200, 20 }, TextFormat("Selected Tile: %d, %d", e.selected_tile, e.tileset.tiles[e.selected_tile].collision));
+    GuiLabel(.{ anchor.x + pad, y, 200, 20 }, TextFormat("Selected Tile: %d", e.selected_tile));
 
     y += 30;
     // tx, ty := tile_coords(t, m.tileset.texture.width / TILE_SIZE);
@@ -186,7 +180,7 @@ draw_bottom_panel :: (e: *Editor_State) {
     // collision picker
     anchor.x += pad*2 + TILE_SIZE*4.0;
     GuiToggleGroup(.{ anchor.x, y, 70, 30 }, "EMPTY;SOLID;SLOPE_UP;SLOPE_DOWN", xx *e.selected_collision);
-    e.tileset.tiles[e.selected_tile].collision = e.selected_collision;
+    e.tileset.collisions[e.selected_tile] = e.selected_collision;
 
     y += 50;
     e.save_pressed = xx GuiButton(.{ anchor.x, y, 70, 30 }, "Save");
