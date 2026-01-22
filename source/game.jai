@@ -17,26 +17,42 @@ game_init :: (g: *Game_State) {
     player_init(*g.player, .{200, 1600});
 
     // Init camera.
-    g.camera.zoom = 1;
+    g.camera.zoom = 4;
     g.camera.offset = .{
-        xx (VIRTUAL_WIDTH * 0.5),
-        xx (VIRTUAL_HEIGHT * 0.5),
+        xx (window_width * 0.5),
+        xx (window_height * 0.5),
     };
     g.camera.target = g.player.position;
 }
 
 game_update :: (g: *Game_State, dt: float) {
+    action := player_collect_action();
+
     dt *= g.time_scale;
 
-    if g_input.plant_seed {
-        plant_pos := world_to_tile(g.player.position + .{ xx g_input.plant_direction.x, xx g_input.plant_direction.y - 1.0 });
-        dir := -g_input.plant_direction;
-        array_add(*g.world.seeds, seed_plant(*g.world, plant_pos, dir));
+    if action.plant {
+        skin := -1.0;
+        if action.plant_dir.y < 0 {
+            skin -= g.player.size.y + 10;
+        }
+        plant_pos := world_to_tile(g.player.position + .{ xx action.plant_dir.x, xx action.plant_dir.y + skin});
+        g_debug.plant_pos = plant_pos;
+        dir := -action.plant_dir;
+        seed, ok := seed_plant(*g.world, plant_pos, dir);
+        if ok && g.player.seeds_left > 0 {
+            array_add(*g.world.seeds, seed);
+            g.player.seeds_left -= 1;
+        }
+    }
+
+    if action.remove_all_seeds {
+        array_reset(*g.world.seeds);
+        g.player.seeds_left = g.player.seeds_max;
     }
 
     player_update(*g.player, *g.world, dt);
     world_update(*g.world, dt);
-    clamp_camera(*g.camera, g.player.position, .{ xx VIRTUAL_WIDTH, xx VIRTUAL_HEIGHT, g.world.bounds.width, g.world.bounds.height});
+    clamp_camera(*g.camera, g.player.position, .{ xx window_width, xx window_height, g.world.bounds.width, g.world.bounds.height});
 }
 
 game_draw :: (g: *Game_State) {

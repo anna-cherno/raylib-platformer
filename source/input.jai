@@ -7,6 +7,8 @@ Input_State :: struct {
     mouse_right_down: bool;
 
     plant_seed: bool;
+    remove_all_seeds: bool;
+    undo_last_seed: bool;
     plant_direction: Vector2i;
 }
 
@@ -33,6 +35,8 @@ input_update :: (is: *Input_State) {
     is.mouse_right_down = IsMouseButtonDown(MOUSE_RIGHT_BUTTON);
 
     is.plant_seed = IsKeyPressed(.KEY_E);
+    is.remove_all_seeds = IsKeyPressed(.KEY_R);
+    is.undo_last_seed = IsKeyPressed(.KEY_Z);
 }
 
 to_virtual_coords :: inline (pos: Vector2) -> Vector2 {

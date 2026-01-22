@@ -124,6 +124,10 @@ collision_floor_y :: (col: Collision_Type, world_x: float, tx: int, ty: int) -> 
     return result;
 }
 
+collision_ceil_y :: (col: Collision_Type, world_x: float, tx: int, ty: int) -> float {
+    return xx ((ty + 1) * TILE_SIZE);
+}
+
 tilemap_draw :: (m: *Tilemap) {
     for y: 0..m.height-1 {
         for x: 0..m.width-1 {
@@ -146,7 +150,7 @@ tilemap_draw :: (m: *Tilemap) {
     }
 }
 
-TILESET_VER   :: 1;
+TILESET_VER :: 1;
 
 save_tileset_data :: (ts: *Tileset, path: string) {
     filename := tprint("%/%.tileset", data_folder, path);

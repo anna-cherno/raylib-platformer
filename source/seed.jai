@@ -17,8 +17,8 @@ Seed :: struct {
 }
 
 seed_plant :: (world: *World, pos: Vector2i, dir: Vector2i) -> Seed, bool {
-    if !tile_is_solid(*world.tilemaps[0], pos) then return Seed.{}, false;
-    if has_any_seed_at(world, pos) then return Seed.{}, false;
+    if !tile_is_solid(*world.tilemaps[0], pos) then return .{}, false;
+    if has_any_seed_at(world, pos) then return .{}, false;
 
     seed := Seed.{
         head_pos = pos,

@@ -35,7 +35,7 @@ data_folder : string;
 g_assets: Assets;
 g_game: Game_State;
 g_editor: Editor_State;
-g_input: Input_State;
+// g_input: Input_State;
 g_debug: Debug_State;
 
 Vector2i :: struct {
@@ -74,7 +74,7 @@ main :: () {
     debug_init();
 
     while (!WindowShouldClose()) {
-        input_update(*g_input);
+        // input_update(*g_input);
         debug_update();
         if IsKeyPressed(.KEY_TAB) {
             toggle_mode();
@@ -88,19 +88,20 @@ main :: () {
         }
 
         // Draw to the target texture.
-        if g_game.mode == .PLAY {
-            BeginTextureMode(target);
-                game_draw(*g_game);
-            EndTextureMode();
-        }
+        // if g_game.mode == .PLAY {
+        //     BeginTextureMode(target);
+        //         game_draw(*g_game);
+        //     EndTextureMode();
+        // }
 
         // Draw the target texture to the screen.
         BeginDrawing();
             if g_game.mode == .PLAY {
                 ClearBackground(DARKGRAY);
-                src := Rectangle.{ 0, 0, xx target.texture.width, xx -target.texture.height};
-                dst := Rectangle.{ 0, 0, xx window_width, xx window_height };
-                DrawTexturePro(target.texture, src, dst, .{0, 0}, 0, WHITE);
+                // src := Rectangle.{ 0, 0, xx target.texture.width, xx -target.texture.height};
+                // dst := Rectangle.{ 0, 0, xx window_width, xx window_height };
+                // DrawTexturePro(target.texture, src, dst, .{0, 0}, 0, WHITE);
+                game_draw(*g_game);
             } else if g_game.mode == .EDITOR {
                 editor_draw(*g_editor);
             }

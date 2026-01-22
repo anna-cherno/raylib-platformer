@@ -51,7 +51,7 @@ editor_update :: (e: *Editor_State, dt: float) {
             tx := world_to_tile_x(mouse_pos.x - e.tileset_rect.x);
             ty := world_to_tile_y(mouse_pos.y - e.tileset_rect.y);
             e.hovered_tile = tile_index(tx, ty, xx (e.tileset_rect.width / TILE_SIZE));
-            if g_input.mouse_left_down {
+            if IsMouseButtonDown(MOUSE_LEFT_BUTTON) {
                 e.selected_tile = e.hovered_tile;
                 e.selected_collision = e.tileset.tiles[e.selected_tile].collision;
             }
@@ -60,8 +60,11 @@ editor_update :: (e: *Editor_State, dt: float) {
         tx, ty := editor_mouse_tile(e.camera, mouse_pos);
         if tx < 0 || ty < 0 || tx >= e.game.world.tilemaps[0].width || ty >= e.game.world.tilemaps[0].height then return;
         idx := tile_index(tx, ty, e.game.world.tilemaps[0].width);
-        if g_input.mouse_left_down {
+        if IsMouseButtonDown(MOUSE_LEFT_BUTTON) {
             e.game.world.tilemaps[0].tiles[idx] = e.selected_tile;
+        }
+        if IsMouseButtonDown(MOUSE_RIGHT_BUTTON) {
+            e.game.world.tilemaps[0].tiles[idx] = -1;
         }
     }
 
@@ -72,12 +75,10 @@ editor_update :: (e: *Editor_State, dt: float) {
 
 editor_draw :: (e: *Editor_State) {
     ClearBackground(BLACK);
+
     BeginMode2D(e.camera);
         draw_bounds(e.game.world.bounds);
         world_draw(*e.game.world);
-        if e.show_grid {
-            draw_grid(e.game.world.bounds);
-        }
         debug_draw_game(e.game);
 
         player_draw(*e.game.player);
@@ -118,7 +119,7 @@ editor_mouse_tile :: inline (cam: Camera2D, mouse_pos: Vector2) -> int, int {
 #scope_file
 
 camera_update :: (camera: *Camera2D, bounds: Rectangle) {
-    if g_input.mouse_right_down {
+    if IsMouseButtonDown(MOUSE_MIDDLE_BUTTON) {
         delta := GetMouseDelta();
         camera.target -= delta / camera.zoom;
     }

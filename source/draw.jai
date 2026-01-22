@@ -5,11 +5,11 @@ draw_grid :: (bounds: Rectangle) {
     end_y := cast(s32) ((bounds.y + bounds.height) / TILE_SIZE);
 
     for x: start_x .. end_x {
-        DrawLine(x * TILE_SIZE, xx bounds.y, x * TILE_SIZE, xx (bounds.y + bounds.height), Fade(DARKGRAY, 0.3));
+        DrawLineEx(.{ xx (x * TILE_SIZE), bounds.y}, .{ xx (x * TILE_SIZE), (bounds.y + bounds.height)}, 0.5, Fade(DARKGRAY, 0.1));
     }
 
     for y: start_y .. end_y {
-        DrawLine(xx bounds.x, y * TILE_SIZE, xx (bounds.x + bounds.width), y * TILE_SIZE, Fade(DARKGRAY, 0.3));
+        DrawLineEx(.{ bounds.x, xx (y * TILE_SIZE) }, .{bounds.x + bounds.width, xx (y * TILE_SIZE) }, 0.5, Fade(DARKGRAY, 0.1));
     }
 }
 

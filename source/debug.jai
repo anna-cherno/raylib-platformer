@@ -3,8 +3,9 @@ Debug_State :: struct {
 
     show_camera := true;
     show_entity_info := true;
-    show_player_colliders := true;
+    show_player_colliders := false;
     show_world_colliders := true;
+    show_grid := true;
 
     time_scale := true;
     seed_len := 0;
@@ -87,6 +88,9 @@ debug_draw_game :: (g: *Game_State) {
     }
     if g_debug.show_player_colliders {
         debug_draw_player_colliders(*g.player);
+    }
+    if g_debug.show_grid {
+        draw_grid(g.world.bounds);
     }
 
     if g_debug.plant_pos.x > 0 && g_debug.plant_pos.y > 0 {

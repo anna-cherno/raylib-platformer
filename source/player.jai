@@ -47,6 +47,18 @@ Player :: struct {
     anim_fall: Animation;
     anim_land: Animation;
     current_anim: *Animation;
+
+    // Gameplay stuff.
+    seeds_max: int = 3;
+    seeds_left: int = 3;
+}
+
+Player_Action :: struct {
+    move: Vector2;
+    jump: bool;
+    plant: bool;
+    plant_dir: Vector2i;
+    remove_all_seeds: bool;
 }
 
 Player_State :: enum {
@@ -81,18 +93,20 @@ player_init :: (p: *Player, start_pos: Vector2) {
 
 player_update :: (p: *Player, world: *World, dt: float) {
     // Input and timers.
-    direction := g_input.movement;
+    action := player_collect_action();
+    direction := action.move;
     if p.is_grounded {
         p.jump_coyote_timer = p.jump_coyote_time;
     } else if p.jump_coyote_timer > 0 {
         p.jump_coyote_timer -= dt;
     }
-    if g_input.jump_pressed {
+    if IsKeyPressed(.KEY_SPACE) {
         p.jump_buffer_timer = p.jump_buffer_time;
     } else if p.jump_buffer_timer > 0 {
         p.jump_buffer_timer -= dt;
     }
     was_grounded := p.is_grounded;
+    p.is_hit_ceil = false;
 
     // Apply horizontal movement velocity.
     target_speed := direction.x * p.speed;
@@ -117,7 +131,7 @@ player_update :: (p: *Player, world: *World, dt: float) {
     gravity_force := GRAVITY * p.gravity_scale;
     if p.velocity.y > 0 {
         gravity_force *= 1.5;
-    } else if p.velocity.y < 0 && !g_input.jump_held {
+    } else if p.velocity.y < 0 && !IsKeyDown(.KEY_SPACE) {
         gravity_force *= 3.0;
     }
     p.velocity.y += gravity_force * dt;
@@ -162,36 +176,60 @@ player_update :: (p: *Player, world: *World, dt: float) {
     next = p.position;
     next.y += p.velocity.y * dt;
 
-    min_y = xx floor((prev.y - STEP_HEIGHT) / TILE_SIZE);
-    max_y = xx floor((next.y + STEP_HEIGHT)  / TILE_SIZE);
 
     tx = xx floor(next.x / TILE_SIZE);
 
-    best_y := FLOAT32_INFINITY;
-    found := false;
     skin :: 1.0;
-    for ty: min_y .. max_y {
-        col := collision_at(tx, ty, *world.tilemaps[0]);
-        if col != .EMPTY {
-            floor_y := collision_floor_y(col, next.x, tx, ty);
-            if floor_y < best_y - skin {
-                best_y = floor_y;
-                found = true;
+    just_landed := false;
+    if p.velocity.y >= 0 {
+        min_y = xx floor((prev.y - STEP_HEIGHT) / TILE_SIZE);
+        max_y = xx floor((next.y + STEP_HEIGHT)  / TILE_SIZE);
+        // Find floor.
+        best_floor_y := FLOAT32_INFINITY;
+        found_floor := false;
+        for ty: min_y .. max_y {
+            col := collision_at(tx, ty, *world.tilemaps[0]);
+            if col != .EMPTY {
+                floor_y := collision_floor_y(col, next.x, tx, ty);
+                if floor_y < best_floor_y - skin {
+                    best_floor_y = floor_y;
+                    found_floor = true;
+                }
             }
         }
-    }
-    dy := best_y - prev_y;
-    just_landed := false;
-    if found && p.velocity.y >= 0 && dy <= 3.0 {
-        next.y = best_y;
-        p.is_grounded = true;
-        p.is_jumping = false;
-        p.jump_coyote_timer = p.jump_coyote_time;
-        p.slope_dy = dy;
-        just_landed = !was_grounded && p.is_grounded && p.velocity.y >= 400.0;
-        p.velocity.y = 0;
+        dy := best_floor_y - prev_y;
+        if found_floor && dy <= 3.0 {
+            next.y = best_floor_y;
+            p.is_grounded = true;
+            p.is_jumping = false;
+            p.jump_coyote_timer = p.jump_coyote_time;
+            p.slope_dy = dy;
+            just_landed = !was_grounded && p.is_grounded && p.velocity.y >= 400.0;
+            p.velocity.y = 0;
+        } else {
+            p.is_grounded = false;
+        }
     } else {
-        p.is_grounded = false;
+        // Find ceil.
+        min_y = xx floor((prev.y - p.size.y) / TILE_SIZE);
+        max_y = xx floor((next.y - p.size.y) / TILE_SIZE);
+        best_ceil_y := -FLOAT32_INFINITY;
+        found_ceil := false;
+        for ty: min_y .. max_y {
+            col := collision_at(tx, ty, *world.tilemaps[0]);
+            if col != .EMPTY {
+                ceil_y := collision_ceil_y(col, next.x, tx, ty);
+                if ceil_y > best_ceil_y + skin {
+                    best_ceil_y = ceil_y;
+                    found_ceil = true;
+                }
+            }
+        }
+        if found_ceil {
+            next.y = best_ceil_y + p.size.y;
+            p.velocity.y = 0;
+            p.is_hit_ceil = true;
+        }
     }
 
     p.position = next;
@@ -232,6 +270,27 @@ player_collider :: inline (p: *Player) -> Rectangle {
         p.width,
         p.height,
     };
+}
+
+player_collect_action :: () -> Player_Action {
+    a: Player_Action;
+    if IsKeyDown(.KEY_A) || IsKeyDown(.KEY_LEFT) {
+        a.move.x = -1.0;
+        a.plant_dir.x = -1;
+    } else if IsKeyDown(.KEY_D) || IsKeyDown(.KEY_RIGHT) {
+        a.move.x = 1.0;
+        a.plant_dir.x = 1;
+    }
+    if IsKeyDown(.KEY_W) || IsKeyDown(.KEY_UP) {
+        a.plant_dir.y = -1;
+    } else if IsKeyDown(.KEY_S) || IsKeyDown(.KEY_DOWN) {
+        a.plant_dir.y = 1;
+    }
+
+    a.plant = IsKeyPressed(.KEY_E);
+    a.remove_all_seeds = IsKeyPressed(.KEY_R);
+
+    return a;
 }
 
 #scope_file
