@@ -19,8 +19,8 @@ game_init :: (g: *Game_State) {
     // Init camera.
     g.camera.zoom = 4;
     g.camera.offset = .{
-        xx (window_width * 0.5),
-        xx (window_height * 0.5),
+        xx (virtual_width * 0.5),
+        xx (virtual_height * 0.5),
     };
     g.camera.target = g.player.position;
 
@@ -56,7 +56,7 @@ game_update :: (g: *Game_State, dt: float) {
 
     player_update(*g.player, level, dt);
     world_update(g.world, dt);
-    clamp_camera(*g.camera, g.player.position, .{ xx window_width, xx window_height, level.rect.width, level.rect.height});
+    clamp_camera(*g.camera, g.player.position, .{ xx virtual_width, xx virtual_height, level.rect.width, level.rect.height});
 }
 
 game_draw :: (g: *Game_State) {

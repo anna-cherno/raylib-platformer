@@ -18,17 +18,17 @@
 #load "tiles.jai";
 #load "seed.jai";
 #load "debug.jai";
+#load "file.jai";
 
-ASPECT  :: 16.0 / 10.0;
-HPIXELS :: 400;
+WINDOW_ASPECT :: 16.0 / 10.0;
+GAME_ASPECT   :: 4.0 / 3.0;
+HPIXELS :: 380;
+SCALE :: 4.0;
 
-VIRTUAL_WIDTH  :: HPIXELS;
-VIRTUAL_HEIGHT :: HPIXELS / ASPECT;
-
-SCALE :: 4;
-
-window_width  := cast(s32) VIRTUAL_WIDTH  * SCALE;
-window_height := cast(s32) VIRTUAL_HEIGHT * SCALE;
+virtual_width:  s32 = xx (HPIXELS * SCALE);
+virtual_height: s32 = xx (HPIXELS / WINDOW_ASPECT * SCALE);
+window_width:   s32 = xx (HPIXELS * SCALE);
+window_height:  s32 = xx (HPIXELS / WINDOW_ASPECT * SCALE);
 
 data_folder : string;
 
@@ -41,13 +41,14 @@ g_debug: Debug_State;
 main :: () {
     base_path := path_strip_filename(get_path_of_running_executable());
     data_folder = join(base_path, "assets");
+    defer free(data_folder);
 
     SetConfigFlags(.FLAG_WINDOW_HIGHDPI);
     InitWindow(window_width, window_height, "Seedo");
     SetTargetFPS(75);
 
-    // target := LoadRenderTexture(xx VIRTUAL_WIDTH, xx VIRTUAL_HEIGHT);
-    // SetTextureFilter(target.texture, .TEXTURE_FILTER_POINT);
+    target := LoadRenderTexture(virtual_width, virtual_height);
+    SetTextureFilter(target.texture, .TEXTURE_FILTER_POINT);
 
     // Init systems.
     assets_init();
@@ -69,20 +70,19 @@ main :: () {
         }
 
         // Draw to the target texture.
-        // if g_game.mode == .PLAY {
-        //     BeginTextureMode(target);
-        //         game_draw(*g_game);
-        //     EndTextureMode();
-        // }
+        if g_game.mode == .PLAY {
+            BeginTextureMode(target);
+                game_draw(*g_game);
+            EndTextureMode();
+        }
 
         // Draw the target texture to the screen.
         BeginDrawing();
             if g_game.mode == .PLAY {
-                ClearBackground(DARKGRAY);
-                // src := Rectangle.{ 0, 0, xx target.texture.width, xx -target.texture.height};
-                // dst := Rectangle.{ 0, 0, xx window_width, xx window_height };
-                // DrawTexturePro(target.texture, src, dst, .{0, 0}, 0, WHITE);
-                game_draw(*g_game);
+                ClearBackground(BLACK);
+                src := Rectangle.{ 0, 0, xx target.texture.width, xx -target.texture.height};
+                dst := Rectangle.{ 0, 0, xx virtual_width, xx virtual_height };
+                DrawTexturePro(target.texture, src, dst, .{0, 0}, 0, WHITE);
             } else if g_game.mode == .EDITOR {
                 editor_draw(*g_editor);
             }
@@ -109,14 +109,4 @@ toggle_mode :: () {
     } else if g_game.mode == .EDITOR {
         g_game.mode = .PLAY;
     }
-}
-
-sign :: inline (x: $T/.[float32, float64, s8, s16, s32, s64, u8, u16, u32, u64]) -> T {
-    if x > 0 return 1;
-    if x < 0 return -1;
-    return 0;
-}
-
-sign :: inline (using v: Vector2) -> Vector2 {
-    return .{ sign(x), sign(y) };
 }

@@ -41,7 +41,7 @@ input_update :: (is: *Input_State) {
 
 to_virtual_coords :: inline (pos: Vector2) -> Vector2 {
     return .{
-        pos.x / window_width  * VIRTUAL_WIDTH,
-        pos.y / window_height * VIRTUAL_HEIGHT,
+        pos.x / window_width  * virtual_width,
+        pos.y / window_height * virtual_height,
     };
 }

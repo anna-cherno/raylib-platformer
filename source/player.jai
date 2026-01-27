@@ -84,9 +84,9 @@ player_init :: (p: *Player, start_pos: Vector2) {
         return;
     }
 
-    p.anim_idle = animation_create(*p.texture, 3, 32, 32, 3, 0.2);
+    p.anim_idle = animation_create(*p.texture, 3, 32, 32, 3, 0.1);
     array_resize(*p.anim_idle.frame_times, 3);
-    p.anim_idle.frame_times = float.[1.0, 0.2, 0.2];
+    p.anim_idle.frame_times = float.[4.0, 0.1, 0.05];
 
     p.anim_run  = animation_create(*p.texture, 4, 32, 32, 8, 0.1);
     p.anim_jump = animation_create(*p.texture, 2, 32, 32, 3, 0.1, false);

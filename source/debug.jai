@@ -23,8 +23,8 @@ debug_update :: () {
 }
 
 debug_draw_ui :: (g: *Game_State) {
-    anchor := Vector2.{window_width-205.0, window_height-115.0};
-    debug_rec := Rectangle.{anchor.x, anchor.y, 200, 110};
+    anchor := Vector2.{window_width-200.0, 0 };
+    debug_rec := Rectangle.{anchor.x, anchor.y, 200, 100};
     margin := 15.0;
     padding := 5.0;
 
