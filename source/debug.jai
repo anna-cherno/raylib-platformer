@@ -5,7 +5,7 @@ Debug_State :: struct {
     show_entity_info := true;
     show_player_colliders := false;
     show_world_colliders := true;
-    show_grid := true;
+    show_grid := false;
 
     time_scale := true;
     seed_len := 0;
@@ -14,6 +14,10 @@ Debug_State :: struct {
 
 debug_init :: () {
     // GuiSetStyle(xx GuiControl.DEFAULT, xx GuiDefaultProperty.TEXT_SIZE, 10);
+}
+
+debug_close :: () {
+
 }
 
 debug_update :: () {

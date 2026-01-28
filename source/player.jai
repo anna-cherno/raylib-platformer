@@ -1,5 +1,4 @@
 #import "Math";
-#import "raylib";
 
 STEP_HEIGHT    :: 4.0;
 MAX_FALL_SPEED :: 600.0;
@@ -38,7 +37,7 @@ Player :: struct {
     landing_timer: float;
 
     // Render stuff.
-    texture: Texture2D;
+    texture: *Texture2D;
 
     // Animation.
     anim_idle: Animation;
@@ -49,8 +48,8 @@ Player :: struct {
     current_anim: *Animation;
 
     // Gameplay stuff.
-    seeds_max: int = 3;
-    seeds_left: int = 3;
+    seeds_max  := 3;
+    seeds_left := 3;
 }
 
 Player_Action :: struct {
@@ -69,30 +68,31 @@ Player_State :: enum {
     LAND;
 }
 
-player_init :: (p: *Player, start_pos: Vector2) {
-    p.position = start_pos;
-    p.size = .{32, 32};
-    p.is_facing_right = true;
-    p.is_grounded = false;
-    p.width = p.size.x * 0.34;
-    p.height = p.size.y;
+player_init :: (using player: *Player, initial_position: Vector2) -> ok: bool, err: string {
+    position = initial_position;
+    size = .{ 32, 32 };
+    is_facing_right = true;
+    is_grounded = false;
+    width = size.x * 0.34;
+    height = size.y;
 
-    ok := false;
-    ok, p.texture = table_find(*g_assets.textures, "player");
-    if !ok {
-        log_error("Failed to find player texture");
-        return;
+    // Find player's texture.
+    texture = table_find_pointer(*g_assets.textures, "player");
+    if texture == null {
+        return false, "Unable to find player's texture";
     }
 
-    p.anim_idle = animation_create(*p.texture, 3, 32, 32, 3, 0.1);
-    array_resize(*p.anim_idle.frame_times, 3);
-    p.anim_idle.frame_times = float.[4.0, 0.1, 0.05];
+    anim_idle = animation_create(texture, 3, 32, 32, 3, 0.1);
+    array_resize(*anim_idle.frame_times, 3);
+    anim_idle.frame_times = float.[4.0, 0.1, 0.05];
 
-    p.anim_run  = animation_create(*p.texture, 4, 32, 32, 8, 0.1);
-    p.anim_jump = animation_create(*p.texture, 2, 32, 32, 3, 0.1, false);
-    p.anim_fall = animation_create(*p.texture, 1, 32, 32, 2, 0.1, false);
-    p.anim_land = animation_create(*p.texture, 0, 32, 32, 2, 0.05, false);
-    p.current_anim = *p.anim_idle;
+    anim_run  = animation_create(texture, 4, 32, 32, 8, 0.1);
+    anim_jump = animation_create(texture, 2, 32, 32, 3, 0.1, false);
+    anim_fall = animation_create(texture, 1, 32, 32, 2, 0.1, false);
+    anim_land = animation_create(texture, 0, 32, 32, 2, 0.05, false);
+    current_anim = *anim_idle;
+
+    return true, "";
 }
 
 player_update :: (p: *Player, level: *Level, dt: float) {
@@ -258,13 +258,16 @@ player_update :: (p: *Player, level: *Level, dt: float) {
 }
 
 player_draw :: (p: *Player) {
-    p.current_anim.target_width = xx p.size.x;
-    p.current_anim.target_height = xx p.size.y;
     animation_draw(p.current_anim, p.position, !p.is_facing_right);
 }
 
-player_unload :: (p: *Player) {
-    UnloadTexture(p.texture);
+player_close :: (using player: *Player) {
+    // array_free(anim_idle.frame_times);
+    // array_free(anim_run.frame_times);
+    // array_free(anim_jump.frame_times);
+    // array_free(anim_fall.frame_times);
+    // array_free(anim_land.frame_times);
+    current_anim = null;
 }
 
 player_collider :: inline (p: *Player) -> Rectangle {
@@ -323,4 +326,14 @@ choose_movement_state :: (p: *Player) -> Player_State {
     }
 
     return ifx abs(p.velocity.x) > 0.1 then .RUN else .IDLE;
+}
+
+move_towards :: (current: float, target: float, max_delta: float) -> float {
+    if abs(target - current) <= max_delta return target;
+
+    if target > current {
+        return current + max_delta;
+    } else {
+        return current - max_delta;
+    }
 }

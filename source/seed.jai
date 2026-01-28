@@ -112,7 +112,6 @@ seed_draw :: (s: *Seed) {
 
 #scope_file
 
-
 normalize_to_axis :: (s: *Seed) -> Vector2i {
     d := s.head_dir;
     if abs(d.x) + abs(d.y) == 1 {

@@ -16,5 +16,5 @@ draw_grid :: (bounds: Rectangle) {
 }
 
 draw_bounds :: (bounds: Rectangle) {
-    DrawRectangleRec(bounds, RAYWHITE);
+    DrawRectangleRec(bounds, .{ 238, 225, 196, 255 } );
 }

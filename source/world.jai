@@ -9,7 +9,6 @@ Level :: struct {
 
     tilemaps: [..]Tilemap;
     seeds:    [..]Seed;
-    entities: [..]Entity;
 
     active := true;
 }
@@ -65,7 +64,6 @@ level_create :: (name: string, rows: int, cols: int) -> *Level {
 level_destroy :: (level: *Level) {
     array_free(level.seeds);
     array_free(level.tilemaps);
-    array_free(level.entities);
 
     free(level);
 }

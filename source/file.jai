@@ -10,6 +10,8 @@ save_tileset_data_to_file :: (tileset: *Tileset, path: string) {
 
     // Meta data.
     print_to_builder(*builder, "[%]\n\n", TILESET_FILE_VERSION);
+    print_to_builder(*builder, "# Texture name\n");
+    print_to_builder(*builder, "%\n", tileset.name);
 
     // Collisions.
     print_to_builder(*builder, "# Collisions\n");
@@ -35,52 +37,55 @@ save_tileset_data_to_file :: (tileset: *Tileset, path: string) {
     write_entire_file(filename, *builder);
 }
 
-load_tileset_data_from_file :: (tileset: *Tileset, filename: string) -> bool {
+load_tileset_data_from_file :: (tileset: *Tileset, filename: string) -> ok: bool, err: string {
     handler: Text_File_Handler;
     defer deinit(*handler);
 
     filepath := tprint("%/%", data_folder, filename);
     found, short_name := split_from_right(filepath, "/");
     if !found {
-        log_error("File % not found", filename);
-        return false;
+        return false, tprint("File % not found", filename);
     }
 
     start_file(*handler, short_name, filepath, false);
-    if handler.failed then return false;
+    if handler.failed then return false, "Unable to start a file";
 
-    // read tile size.
     line: string;
+    // Read tileset texture name.
     line, found = consume_next_line(*handler);
     if !found {
-        log_error("Failed to read tile size");
-        return false;
+        return false, "Failed to read tileset texture name";
+    }
+    tileset.name = line;
+
+    // Read tile size.
+    line, found = consume_next_line(*handler);
+    if !found {
+        return false, "Failed to read tile size";
     }
     tileset.tile_size, found = xx parse_int(*line);
     if !found {
-        log_error("Failed to parse tile size");
-        return false;
+        return false, "Failed to parse tile size";
     }
 
     // read tiles count
     line, found = consume_next_line(*handler);
     if !found {
-        log_error("Failed to read tiles count");
-        return false;
+        return false, "Failed to read tiles count";
     }
     tiles_count: int;
     tiles_count, found = parse_int(*line);
     if !found {
-        log_error("Failed to parse tile size");
-        return false;
+        return false, "Failed to parse tile size";
     }
 
     line, found = consume_next_line(*handler);
     if !found {
-        log_error("Failed to read tile data");
-        return false;
+        return false, "Failed to read tile data";
     }
 
+    // Read collisions.
+    array_resize(*tileset.collisions, tiles_count);
     for i: 0..tiles_count-2 {
         c := string_to_int(line);
         tileset.collisions[i] = xx c;
@@ -91,14 +96,12 @@ load_tileset_data_from_file :: (tileset: *Tileset, filename: string) -> bool {
     // Rules count.
     line, found = consume_next_line(*handler);
     if !found {
-        log_error("Failed to read rule count");
-        return false;
+        return false, "Failed to read rule count";
     }
     rules_count: int;
     rules_count, found = parse_int(*line);
     if !found {
-        log_error("Failed to parse rules count");
-        return false;
+        return false, "Failed to parse rules count";
     }
     array_reserve(*tileset.rules, rules_count);
 
@@ -106,8 +109,7 @@ load_tileset_data_from_file :: (tileset: *Tileset, filename: string) -> bool {
     for i: 0..rules_count-1 {
         line, found = consume_next_line(*handler);
         if !found {
-            log_error("Failed to read rule data");
-            return false;
+            return false, "Failed to read rule data";
         }
 
         rule: Tileset_Rule;
@@ -115,8 +117,7 @@ load_tileset_data_from_file :: (tileset: *Tileset, filename: string) -> bool {
         parts := split(line, " ");
         defer array_free(parts);
         if parts.count < 3 {
-            log_error("Rule item should have at least 3 numbers");
-            return false;
+            return false, "Rule item should have at least 3 numbers";
         }
 
         // Mask.
@@ -127,8 +128,7 @@ load_tileset_data_from_file :: (tileset: *Tileset, filename: string) -> bool {
         tile_ids_count := string_to_int(parts[2]);
         array_resize(*rule.tile_ids, tile_ids_count);
         if tile_ids_count > parts.count - 3 {
-            log_error("Empty tile ids");
-            return false;
+            return false, "Empty tile ids";
         }
         for j: 0..tile_ids_count-1 {
             // left, right = break_by_spaces(right);
@@ -139,5 +139,5 @@ load_tileset_data_from_file :: (tileset: *Tileset, filename: string) -> bool {
         array_add(*tileset.rules, rule);
     }
 
-    return true;
+    return true, "";
 }

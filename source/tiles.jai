@@ -4,9 +4,9 @@ Tileset :: struct {
     cols, rows: s32;
     tile_size:  s32;
 
+    name: string;
     texture: *Texture2D;
     collisions: [..]Collision_Type;
-
     rules: [..]Tileset_Rule;
 }
 
@@ -263,9 +263,11 @@ tilemap_update_autotiling :: (tilemap: *Tilemap, x: int, y: int) {
                 }
             }
 
-            base_rule := tilemap.tileset.rules[0];
-            if found_tile == -1 && base_rule.tile_ids.count > 0 {
-                found_tile = get_random_from(base_rule.tile_ids, nx, ny);
+            if tilemap.tileset.rules.count > 0 {
+                base_rule := tilemap.tileset.rules[0];
+                if found_tile == -1 && base_rule.tile_ids.count > 0 {
+                    found_tile = get_random_from(base_rule.tile_ids, nx, ny);
+                }
             }
 
             tilemap.auto_tiles[idx] = found_tile;
