@@ -19,17 +19,13 @@
 #load "debug.jai";
 #load "file.jai";
 
-// Window consts.
-GAME_ASPECT   :: 16.0 / 10.0;
-EDITOR_ASPECT :: 16.0 / 10.0;
 HPIXELS :: 380;
-SCALE   :: 4.0;
+ASPECT :: 16.0 / 10.0;
 
-// Window sizes.
-virtual_width:  s32 = xx (HPIXELS * SCALE);
-virtual_height: s32 = xx (HPIXELS / GAME_ASPECT * SCALE);
-window_width:   s32 = xx (HPIXELS * SCALE);
-window_height: s32 = xx (HPIXELS / EDITOR_ASPECT * SCALE);
+// Window params.
+window_width: s32;
+window_height: s32;
+render_scale: float;
 
 // Global absolute path to asset folder.
 data_folder : string;
@@ -87,7 +83,7 @@ main :: () {
         BeginDrawing();
             if g_game.mode == .PLAY {
                 src := Rectangle.{ 0, 0, xx render_target.texture.width, xx -render_target.texture.height};
-                dst := Rectangle.{ 0, 0, xx virtual_width, xx virtual_height };
+                dst := Rectangle.{ 0, 0, xx window_width, xx window_height };
                 DrawTexturePro(render_target.texture, src, dst, .{0, 0}, 0, WHITE);
             } else if g_game.mode == .EDITOR {
                 #if EDITOR editor_draw(*g_editor);
@@ -103,16 +99,55 @@ main :: () {
 }
 
 init_raylib_stuff :: () {
-    SetConfigFlags(.FLAG_WINDOW_HIGHDPI);
-    InitWindow(window_width, window_height, "Seedo");
+    SetConfigFlags(.FLAG_WINDOW_HIGHDPI | .FLAG_VSYNC_HINT);
+    InitWindow(100, 100, "Seedo");
+
+    // Detect best monitor (bigger wins (for dev)).
+    monitor := GetCurrentMonitor();
+    for 0..GetMonitorCount()-1 {
+        if GetMonitorWidth(it) > GetMonitorWidth(monitor) {
+            monitor = it;
+            SetWindowMonitor(monitor);
+            break;
+        }
+    }
+
+    init_window_dimensions(monitor);
+    SetWindowSize(window_width, window_height);
+    SetWindowPosition(
+        (GetMonitorWidth(monitor) - window_width) / 2,
+        (GetMonitorHeight(monitor) - window_height) / 2,
+    );
 
     // Set refresh rate.
-    monitor_id := GetCurrentMonitor();
-    SetTargetFPS(GetMonitorRefreshRate(monitor_id));
+    SetTargetFPS(GetMonitorRefreshRate(monitor));
+
+    SetWindowMonitor(monitor);
 
     // We are rendering in the render target texture.
-    render_target = LoadRenderTexture(virtual_width, virtual_height);
+    render_target = LoadRenderTexture(window_width, window_height);
     SetTextureFilter(render_target.texture, .TEXTURE_FILTER_POINT);
+}
+
+init_window_dimensions :: (monitor: s32) {
+    display_w := GetMonitorWidth(monitor);
+    display_h := GetMonitorHeight(monitor);
+    max_window_h := display_h * 0.8;
+    base_h := HPIXELS / ASPECT;
+
+    scale := floor(max_window_h / base_h);
+    if scale < 1.0 then scale = 1.0;
+
+    render_scale = scale;
+
+    window_height = cast(s32) (base_h * render_scale);
+    window_width = cast(s32) (window_height * ASPECT);
+
+    if window_width > display_w {
+        window_width = cast(s32) (display_w * 0.9);
+        window_height = cast(s32) (cast(float) window_width / ASPECT);
+    }
+
 }
 
 init_global_states :: () -> ok: bool, err: string {
@@ -157,7 +192,7 @@ close_raylib_stuff :: () {
 toggle_mode :: () {
     if g_game.mode == .PLAY {
         g_game.mode = .EDITOR;
-        g_editor.camera.zoom = SCALE;
+        g_editor.camera.zoom = render_scale;
         g_editor.camera.offset.x = xx (window_width / 2);
         g_editor.camera.offset.y = xx (window_height / 2);
         g_editor.camera.target = g_game.player.position;
