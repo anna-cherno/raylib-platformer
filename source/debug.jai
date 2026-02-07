@@ -79,7 +79,7 @@ debug_draw_game :: (g: *Game_State) {
         debug_draw_player_colliders(*g.player);
     }
     if g_debug.show_grid {
-        draw_grid(g.world.levels[g.world.current_level].rect);
+        draw_grid(g.world.levels[g.world.current_level_index].bounds);
     }
 
     if g_debug.plant_pos.x > 0 && g_debug.plant_pos.y > 0 {

@@ -1,4 +1,5 @@
 TILE_SIZE : s32 : 16;
+EMPTY_TILE :: 0xFFFF;
 
 Tileset :: struct {
     cols, rows: s32;
@@ -11,20 +12,28 @@ Tileset :: struct {
 }
 
 Tilemap :: struct {
+    name: string;
     tileset: *Tileset;
 
-    collisions:    [..]Collision_Type;
-    auto_tiles:    [..]s32;
-    // manual_tiles:  [..]u16;
+    // rows, cols: int;
+    data: []Tile;
+    has_collisions: bool;
 
-    width, height: int;
-    active := true;
+    z_index: int;
+    active  := true;
+    visible := true;
 }
 
 Tile :: struct {
-    sprite: int; // index from tileset
+    id: s16 = EMPTY_TILE; // Empty tile.
     collision: Collision_Type;
-    flipped: bool;
+    flags: Tile_Flags;
+}
+
+Tile_Flags :: enum_flags u8 {
+    FLIPPED_X :: 0x01;
+    FLIPPED_Y :: 0x02;
+    MANUAL    :: 0x04;
 }
 
 Collision_Map :: struct {
@@ -47,10 +56,13 @@ Tileset_Flags :: enum_flags u16 {
 Tileset_Rule :: struct {
     on_mask:  Tileset_Flags;
     off_mask: Tileset_Flags;
-    tile_ids: [] s32;
+    mirror_x: bool;
+    mirror_y: bool;
+    active := true;
+    tile_ids: []s16;
 }
 
-Collision_Type :: enum {
+Collision_Type :: enum u8 {
     EMPTY;
     SOLID;
     SLOPE_UP;
@@ -58,26 +70,18 @@ Collision_Type :: enum {
     ONE_WAY_UP;
 }
 
-tilemap_create :: (rows: int, cols: int, tileset: *Tileset) -> Tilemap {
-    tilemap := Tilemap.{ width = rows, height = cols, tileset = tileset };
-
-    size := rows * cols;
-    array_resize(*tilemap.auto_tiles, size);
-    array_resize(*tilemap.collisions, size);
-
-    for i: 0..tilemap.auto_tiles.count-1 {
-        tilemap.auto_tiles[i] = -1;
-    }
+tilemap_create :: (level: *Level, initial_tileset: *Tileset, has_collisions := true) -> Tilemap {
+    tilemap := Tilemap.{ tileset = initial_tileset, has_collisions = has_collisions };
+    tilemap.name = sprint("Layer %", level.layers.count + 1);
+    tilemap.data = NewArray(level.rows * level.cols, Tile);
 
     return tilemap;
 }
 
 tilemap_destroy :: (tilemap: *Tilemap) {
-    tilemap.width = 0;
-    tilemap.height = 0;
+    free(tilemap.name);
     tilemap.active = false;
-    array_free(tilemap.collisions);
-    array_free(tilemap.auto_tiles);
+    array_free(tilemap.data);
 }
 
 tile_index :: inline (tx: int, ty: int, t_width: int) -> int {
@@ -88,27 +92,31 @@ tile_coords :: inline (index: s32, t_width: s32) -> s32, s32 {
     return index % t_width, index / t_width;
 }
 
-tile_is_solid :: (tm: *Tilemap, pos: Vector2i) -> bool {
-    return collision_at(pos.x, pos.y, tm) == .SOLID;
-}
-
-tile_is_empty :: (tm: *Tilemap, pos: Vector2i) -> bool {
-    return collision_at(pos.x, pos.y, tm) == .EMPTY;
-}
-
-collision_at :: (tx: int, ty: int, tm: *Tilemap) -> Collision_Type {
-    if tx < 0 || tx >= tm.width || ty < 0 || ty >= tm.height {
-        return .SOLID; // bounds of tile is solid
+collision_at :: (tx: int, ty: int, level: *Level) -> Collision_Type {
+    if tx < 0 || tx >= level.cols || ty < 0 || ty >= level.rows {
+        return .SOLID; // bounds of level is solid.
     }
-    return tm.collisions[tile_index(tx, ty, tm.width)];
-    // t := tm.tiles[tile_index(tx, ty, tm.width)];
-    // if t < 0 return .EMPTY;
 
-    // return tm.tileset.tiles[t].collision;
+    for < level.layers {
+        if !it.active || !it.has_collisions then continue;
+
+        tile := it.data[tile_index(tx, ty, level.cols)];
+        if tile.collision != .EMPTY then
+            return tile.collision;
+    }
+
+    return .EMPTY;
 }
 
-world_to_tile :: inline (pos: Vector2) -> Vector2i {
-    return .{ world_to_tile_x(pos.x), world_to_tile_y(pos.y) };
+tilemap_collision_at :: (tilemap: *Tilemap, tx: s32, ty: s32, cols: s32, rows: s32) -> Collision_Type {
+    if !tilemap.active then return .EMPTY;
+    if tx < 0 || tx >= cols || ty < 0 || ty >= rows then return .SOLID;
+
+    return tilemap.data[tile_index(tx, ty, cols)].collision;
+}
+
+world_to_tile :: inline (pos: Vector2, tile_size := TILE_SIZE) -> Vector2i {
+    return .{ world_to_tile_x(pos.x, tile_size), world_to_tile_y(pos.y, tile_size) };
 }
 
 world_to_tile_x :: inline (x: float, tile_size := TILE_SIZE) -> s32 {
@@ -146,22 +154,23 @@ collision_ceil_y :: (col: Collision_Type, world_x: float, tx: int, ty: int) -> f
     return xx ((ty + 1) * TILE_SIZE);
 }
 
-tilemap_draw :: (tilemap: *Tilemap, start: Vector2i, end: Vector2i) {
+tilemap_draw :: (tilemap: *Tilemap, start: Vector2i, end: Vector2i, cols: s32, rows: s32) {
     for y: start.y..end.y {
         for x: start.x..end.x {
-            idx := tile_index(x, y, tilemap.width);
-            if x < 0 || x >= tilemap.width || y < 0 || y >= tilemap.height then continue;
-            t := tilemap.auto_tiles[idx];
+            if x < 0 || x >= cols || y < 0 || y >= rows then continue;
 
-            if t < 0 then continue;
+            tile := tilemap.data[tile_index(x, y, cols)];
+            if tile.id == EMPTY_TILE then continue;
 
             top    := cast(float) (y * TILE_SIZE);
             bottom := cast(float) (y * TILE_SIZE + TILE_SIZE);
             left   := cast(float) (x * TILE_SIZE);
             right  := cast(float) (x * TILE_SIZE + TILE_SIZE);
 
-            tx, ty := tile_coords(t, tilemap.tileset.texture.width / TILE_SIZE);
-            src := Rectangle.{ xx (tx * TILE_SIZE), xx (ty * TILE_SIZE), xx TILE_SIZE, xx TILE_SIZE };
+            tx, ty := tile_coords(tile.id, tilemap.tileset.texture.width / tilemap.tileset.tile_size);
+            src := Rectangle.{ xx (tx * tilemap.tileset.tile_size), xx (ty * tilemap.tileset.tile_size), xx tilemap.tileset.tile_size, xx tilemap.tileset.tile_size };
+            if tile.flags & .FLIPPED_X then src.width = -src.width;
+            if tile.flags & .FLIPPED_Y then src.height = -src.height;
             dst := Rectangle.{left, top, right - left, bottom - top};
 
             DrawTexturePro(tilemap.tileset.texture, src, dst, .{0, 0}, 0, WHITE);
@@ -171,55 +180,23 @@ tilemap_draw :: (tilemap: *Tilemap, start: Vector2i, end: Vector2i) {
 
 draw_tile :: inline (texture: Texture2D, tile_position: Vector2i, world_position: Vector2, tile_scale := 1.0, tile_size := TILE_SIZE) {
     src := Rectangle.{ xx (tile_position.x * tile_size), xx (tile_position.y * tile_size), xx tile_size, xx tile_size };
-    dst := Rectangle.{ world_position.x, world_position.y, tile_size * tile_scale, tile_size * tile_scale };
+    dst := Rectangle.{ world_position.x, world_position.y, TILE_SIZE * tile_scale, TILE_SIZE * tile_scale };
     DrawTexturePro(texture, src, dst, .{0, 0}, 0, WHITE);
 }
 
-tileset_default_rules :: (tileset: *Tileset) {
-    // left corner
-    array_add(*tileset.rules, .{
-        on_mask = .RIGHT | .BOTTOM,
-        tile_ids = s32.[0],
-    });
-
-    // left wall
-    array_add(*tileset.rules, .{
-        on_mask = .TOP,
-        tile_ids = s32.[20],
-    });
-    array_add(*tileset.rules, .{
-        on_mask = .BOTTOM,
-        tile_ids = s32.[20],
-    });
-    array_add(*tileset.rules, .{
-        on_mask = .TOP | .BOTTOM,
-        tile_ids = s32.[20],
-    });
-    array_add(*tileset.rules, .{
-        on_mask = .TOP | .TOP_RIGHT | .BOTTOM,
-        tile_ids = s32.[20],
-    });
-
-    // base rule
-    array_add(*tileset.rules, Tileset_Rule.{
-        on_mask = 0,
-        tile_ids = s32.[1, 2, 3, 4],
-    });
-}
-
-tilemap_calc_mask :: (tilemap: *Tilemap, x: int, y: int) -> Tileset_Flags {
+tilemap_calc_mask :: (tilemap: *Tilemap, x: s32, y: s32, cols: s32, rows: s32) -> Tileset_Flags {
     mask: Tileset_Flags;
-    collision := collision_at(x, y, tilemap);
+    collision := tilemap_collision_at(tilemap, x, y, cols, rows);
     if collision == .EMPTY then return 0;
 
     for dy: -1..1 {
         for dx: -1..1 {
             if dx == 0 && dy == 0 then continue;
 
-            nx := x + dx;
-            ny := y + dy;
+            nx := cast(s32) (x + dx);
+            ny := cast(s32) (y + dy);
 
-            if collision_at(nx, ny, tilemap) == collision {
+            if tilemap_collision_at(tilemap, nx, ny, cols, rows) == collision {
                 if dx == -1 && dy == -1 then mask |= .TOP_LEFT;
                 if dx ==  0 && dy == -1 then mask |= .TOP;
                 if dx ==  1 && dy == -1 then mask |= .TOP_RIGHT;
@@ -236,51 +213,91 @@ tilemap_calc_mask :: (tilemap: *Tilemap, x: int, y: int) -> Tileset_Flags {
     return mask;
 }
 
-tilemap_update_autotiling :: (tilemap: *Tilemap, x: int, y: int) {
+tilemap_update_autotiling :: (tilemap: *Tilemap, x: int, y: int, cols: s32, rows: s32) {
     for dy: -1..1 {
         for dx: -1..1 {
-            nx := x + dx;
-            ny := y + dy;
+            nx := cast(s32) (x + dx);
+            ny := cast(s32) (y + dy);
 
-            idx := tile_index(nx, ny, tilemap.width);
-            if nx < 0 || nx >= tilemap.width || ny < 0 || ny >= tilemap.height {
+            index := tile_index(nx, ny, cols);
+            if nx < 0 || nx >= cols || ny < 0 || ny >= rows then continue;
+            if tilemap.data[index].flags & Tile_Flags.MANUAL then continue;
+            if tilemap_collision_at(tilemap, nx, ny, cols, rows) == .EMPTY {
+                tilemap.data[index].id = EMPTY_TILE;
                 continue;
             }
-            if collision_at(nx, ny, tilemap) == .EMPTY {
-                tilemap.auto_tiles[idx] = -1;
-                continue;
-            }
-            // if tilemap.auto_tiles[idx] != -1 then continue;
 
-            mask := tilemap_calc_mask(tilemap, nx, ny);
-            found_tile: s32 = -1;
+            mask := tilemap_calc_mask(tilemap, nx, ny, cols, rows);
+            found_tile: s16 = EMPTY_TILE;
+            mirror_x := false;
+            mirror_y := false;
             for rule: tilemap.tileset.rules {
+                if !rule.active continue;
+
                 if (rule.on_mask & mask) == rule.on_mask && (rule.off_mask & mask) == 0 {
-                    if rule.tile_ids.count > 0 {
-                        found_tile = get_random_from(rule.tile_ids, nx, ny);
-                    }
+                    if rule.tile_ids.count > 0 then found_tile = get_random_from(rule.tile_ids, nx, ny);
                     break;
+                }
+
+                if rule.mirror_x || rule.mirror_y {
+                    on_mask := mirror_mask(rule.on_mask, rule.mirror_x, rule.mirror_y);
+                    off_mask := mirror_mask(rule.off_mask, rule.mirror_x, rule.mirror_y);
+
+                    if (on_mask & mask) == on_mask && (off_mask & mask) == 0 {
+                        if rule.tile_ids.count > 0 {
+                            found_tile = get_random_from(rule.tile_ids, nx, ny);
+                            if rule.mirror_x then tilemap.data[index].flags |= .FLIPPED_X;
+                            if rule.mirror_y then tilemap.data[index].flags |= .FLIPPED_Y;
+                        }
+                        break;
+                    }
                 }
             }
 
             if tilemap.tileset.rules.count > 0 {
-                base_rule := tilemap.tileset.rules[0];
+                base_rule := tilemap.tileset.rules[tilemap.tileset.rules.count-1];
                 if found_tile == -1 && base_rule.tile_ids.count > 0 {
                     found_tile = get_random_from(base_rule.tile_ids, nx, ny);
                 }
             }
 
-            tilemap.auto_tiles[idx] = found_tile;
+            tilemap.data[index].id = found_tile;
         }
     }
 }
 
 #scope_file
 
-get_random_from :: inline (arr: []s32, x: int, y: int) -> s32 {
+get_random_from :: inline (arr: []s16, x: int, y: int) -> s16 {
     // random_idx := cast(int) random_get_within_range(0.0, xx (arr.count-1));
-    idx := (x * 73856093 ^ y * 19349663) % arr.count;
-    return arr[idx];
+    index := (x * 73856093 ^ y * 19349663) % arr.count;
+    return arr[index];
+}
+
+mirror_mask :: (mask: Tileset_Flags, abscissa: bool, ordinate: bool) -> Tileset_Flags {
+    out_mask: Tileset_Flags = 0;
+    if abscissa {
+        if mask & .TOP_LEFT     then out_mask |= .TOP_RIGHT;
+        if mask & .LEFT         then out_mask |= .RIGHT;
+        if mask & .BOTTOM_LEFT  then out_mask |= .BOTTOM_RIGHT;
+        if mask & .TOP_RIGHT    then out_mask |= .TOP_LEFT;
+        if mask & .RIGHT        then out_mask |= .LEFT;
+        if mask & .BOTTOM_RIGHT then out_mask |= .BOTTOM_LEFT;
+        if mask & .TOP          then out_mask |= .TOP;
+        if mask & .BOTTOM       then out_mask |= .BOTTOM;
+    }
+    if ordinate {
+        if mask & .TOP_LEFT     then out_mask |= .BOTTOM_LEFT;
+        if mask & .TOP          then out_mask |= .BOTTOM;
+        if mask & .TOP_RIGHT    then out_mask |= .BOTTOM_RIGHT;
+        if mask & .BOTTOM_LEFT  then out_mask |= .TOP_LEFT;
+        if mask & .BOTTOM       then out_mask |= .TOP;
+        if mask & .BOTTOM_RIGHT then out_mask |= .TOP_RIGHT;
+        if mask & .LEFT         then out_mask |= .LEFT;
+        if mask & .RIGHT        then out_mask |= .RIGHT;
+    }
+
+    return out_mask;
 }
 
 #import "File";

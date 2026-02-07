@@ -1,13 +1,14 @@
 World :: struct {
     levels: [..]*Level;
-    current_level: int;
+    current_level_index: int;
 }
 
 Level :: struct {
     name: string;
-    rect: Rectangle;
+    bounds: Rectangle;
+    cols, rows: s32;
 
-    tilemaps: [..]Tilemap;
+    layers:   [..]Tilemap;
     seeds:    [..]Seed;
 
     active := true;
@@ -19,15 +20,12 @@ world_create :: () -> *World {
 
     // Create initial level.
     array_add(*world.levels, level_create("level_01", 50, 25));
-    world.current_level = 0;
 
     return world;
 }
 
 // Destroy a world.
 world_destroy :: (world: *World) {
-    world.current_level = 0;
-
     for l: world.levels {
         level_destroy(l);
     }
@@ -47,23 +45,28 @@ world_draw :: (w: *World, camera: Camera2D) {
     }
 }
 
-level_create :: (name: string, rows: int, cols: int) -> *Level {
+level_create :: (name: string, cols: s32, rows: s32) -> *Level {
     level := New(Level);
     level.name = "default";
-    level.rect = {0, 0, xx (rows * TILE_SIZE), xx (cols * TILE_SIZE)};
+    level.bounds = {0, 0, xx (cols * TILE_SIZE), xx (rows * TILE_SIZE)};
+    level.cols = cols;
+    level.rows = rows;
 
     // Default tile layer.
-    ok, tileset := table_find(*g_assets.tilesets, "default");
+    ok, tileset := table_find(*g_assets.tilesets, "green_tileset");
     if ok {
-        array_add(*level.tilemaps, tilemap_create(rows, cols, tileset));
+        array_add(*level.layers, tilemap_create(level, tileset));
     }
 
     return level;
 }
 
 level_destroy :: (level: *Level) {
+    for * level.layers {
+        tilemap_destroy(it);
+    }
     array_free(level.seeds);
-    array_free(level.tilemaps);
+    array_free(level.layers);
 
     free(level);
 }
@@ -75,7 +78,7 @@ level_update :: (level: *Level, dt: float) {
 }
 
 level_draw :: (level: *Level, camera: Camera2D) {
-    draw_bounds(level.rect);
+    draw_bounds(level.bounds);
 
     top_left     := GetScreenToWorld2D(.{0, 0}, camera);
     bottom_right := GetScreenToWorld2D(.{xx window_width, xx window_height}, camera);
@@ -84,13 +87,13 @@ level_draw :: (level: *Level, camera: Camera2D) {
     start := Vector2i.{ xx floor(top_left.x / size), xx floor(top_left.y / size) };
     end   := Vector2i.{ xx floor(bottom_right.x / size), xx floor(bottom_right.y / size) };
 
-    start.x = clamp(start.x, 0, cast(s32) floor(level.rect.width / size));
-    start.y = clamp(start.y, 0, cast(s32) floor(level.rect.height / size));
-    end.x = clamp(end.x, 0, cast(s32) floor(level.rect.width / size));
-    end.y = clamp(end.y, 0, cast(s32) floor(level.rect.height / size));
+    start.x = clamp(start.x, 0, cast(s32) floor(level.bounds.width / size));
+    start.y = clamp(start.y, 0, cast(s32) floor(level.bounds.height / size));
+    end.x = clamp(end.x, 0, cast(s32) floor(level.bounds.width / size));
+    end.y = clamp(end.y, 0, cast(s32) floor(level.bounds.height / size));
 
-    for *t: level.tilemaps {
-        tilemap_draw(t, start, end);
+    for * level.layers {
+        tilemap_draw(it, start, end, level.cols, level.rows);
     }
 
     for *s: level.seeds {

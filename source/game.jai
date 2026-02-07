@@ -41,7 +41,7 @@ game_update :: (game: *Game_State, dt: float) {
 
     dt *= game.time_scale;
 
-    level := game.world.levels[game.world.current_level];
+    level := game.world.levels[game.world.current_level_index];
     if action.plant {
         skin := -1.0;
         if action.plant_dir.y < 0 {
@@ -64,7 +64,7 @@ game_update :: (game: *Game_State, dt: float) {
 
     player_update(*game.player, level, dt);
     world_update(game.world, dt);
-    clamp_camera(*game.camera, game.player.position, .{ xx virtual_width, xx virtual_height, level.rect.width, level.rect.height});
+    clamp_camera(*game.camera, game.player.position, .{ xx window_width, xx window_height, level.bounds.width, level.bounds.height});
 }
 
 game_draw :: (game: *Game_State) {
@@ -93,7 +93,7 @@ game_close :: (game: *Game_State) {
 init_camera :: (camera: *Camera2D, initial_position: Vector2) {
     // Init camera.
     camera.zoom = 4;
-    camera.offset = .{ xx (virtual_width * 0.5), xx (virtual_height * 0.5) };
+    camera.offset = .{ xx (window_width * 0.5), xx (window_height * 0.5) };
     camera.target = initial_position;
 }
 

@@ -107,7 +107,6 @@ init_raylib_stuff :: () {
     for 0..GetMonitorCount()-1 {
         if GetMonitorWidth(it) > GetMonitorWidth(monitor) {
             monitor = it;
-            SetWindowMonitor(monitor);
             break;
         }
     }

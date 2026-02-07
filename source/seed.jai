@@ -17,7 +17,7 @@ Seed :: struct {
 }
 
 seed_plant :: (level: *Level, pos: Vector2i, dir: Vector2i) -> Seed, bool {
-    if !tile_is_solid(*level.tilemaps[0], pos) then return .{}, false;
+    if collision_at(pos.x, pos.y, level) != .SOLID then return .{}, false;
     if has_any_seed_at(level, pos) then return .{}, false;
 
     seed := Seed.{
@@ -62,7 +62,7 @@ seed_step :: (seed: *Seed, level: *Level, dt: float) {
         return;
     }
 
-    if tile_is_empty(*level.tilemaps[0], next_pos) {
+    if collision_at(next_pos.x, next_pos.y, level) {
         array_add(*seed.nodes, next_pos);
         seed.head_pos = next_pos;
         seed.energy += 1;
@@ -95,11 +95,11 @@ seed_at_any_node :: (level: *Level, pos: Vector2i, ignore: *Seed) -> *Seed, bool
 }
 
 seed_place_tile :: (level: *Level, pos: Vector2i) {
-    if pos.x < 0 || pos.x >= level.tilemaps[0].width || pos.y < 0 || pos.y >= level.tilemaps[0].height {
+    if pos.x < 0 || pos.x >= level.cols || pos.y < 0 || pos.y >= level.rows {
         return;
     }
-    idx := tile_index(pos.x, pos.y, level.tilemaps[0].width);
-    level.tilemaps[0].collisions[idx] = .SOLID;
+    index := tile_index(pos.x, pos.y, level.cols);
+    level.layers[0].data[index].collision = .SOLID;
 }
 
 seed_draw :: (s: *Seed) {

@@ -20,12 +20,15 @@ Asset_Type :: enum {
 
 assets_to_load :: Asset_Entry.[
     .{"player",        .TEXTURE, "textures/player.png"},
-    .{"paper_tileset", .TEXTURE, "textures/paper_tileset.png"},
-    .{"default",       .TILESET, "tilesets/paper_tileset.data"},
+    .{"green_tileset", .TEXTURE, "textures/green_tileset.png"},
+    .{"1bit_tileset",  .TEXTURE, "textures/1bit_tileset.png"},
+
+    .{"green_tileset", .TILESET, "tilesets/green_tileset.data"},
+    .{"1bit_tileset",  .TILESET, "tilesets/1bit_tileset.data"},
 ];
 
 assets_init :: () -> ok: bool, err: string { // Kind-a go pattern
-    // Check at compile time that all assets is here.
+    // Check at compile time that all assets are here.
     #run {
         for assets_to_load {
             filename := tprint("./%", data_folder, it.path);
@@ -57,7 +60,7 @@ assets_init :: () -> ok: bool, err: string { // Kind-a go pattern
 
     // Raygui style for editor.
     #if EDITOR {
-        load_gui_style("editor/style_genesis.rgs");
+        load_gui_style("editor/style_amber.rgs");
     }
 
     return true, "";
@@ -107,6 +110,7 @@ load_tileset :: (name: string, path: string) -> *Tileset, string {
         return null, tprint("% texture for tileset % is not loaded", tileset.name, name);
     }
 
+    tileset.name = copy_string(name);
     tileset.texture = texture;
     tileset.rows = texture.height / tileset.tile_size;
     tileset.cols = texture.width / tileset.tile_size;

@@ -163,7 +163,7 @@ player_update :: (p: *Player, level: *Level, dt: float) {
 
     blocked := false;
     for ty: min_y .. max_y {
-        if collision_at(tx, ty, *level.tilemaps[0]) == .SOLID {
+        if collision_at(tx, ty, level) == .SOLID {
             blocked = true;
             break;
         }
@@ -192,7 +192,7 @@ player_update :: (p: *Player, level: *Level, dt: float) {
         best_floor_y := FLOAT32_INFINITY;
         found_floor := false;
         for ty: min_y .. max_y {
-            col := collision_at(tx, ty, *level.tilemaps[0]);
+            col := collision_at(tx, ty, level);
             if col != .EMPTY {
                 floor_y := collision_floor_y(col, next.x, tx, ty);
                 if floor_y < best_floor_y - skin {
@@ -220,7 +220,7 @@ player_update :: (p: *Player, level: *Level, dt: float) {
         best_ceil_y := -FLOAT32_INFINITY;
         found_ceil := false;
         for ty: min_y .. max_y {
-            col := collision_at(tx, ty, *level.tilemaps[0]);
+            col := collision_at(tx, ty, level);
             if col != .EMPTY {
                 ceil_y := collision_ceil_y(col, next.x, tx, ty);
                 if ceil_y > best_ceil_y + skin {
