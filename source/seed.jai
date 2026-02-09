@@ -22,8 +22,8 @@ Seed :: struct {
 seed_plant :: (level: *Level, pos: Vector2i, dir: Vector2i) -> Seed, bool {
     if collision_at(pos.x, pos.y, level) != .SOLID then return .{}, false;
     if has_any_seed_at(level, pos) then return .{}, false;
-    // other, found := seed_at_any_node(level, pos, null);
-    // if found then return .{}, false;
+    other, found := seed_at_any_node(level, pos, null);
+    if found then return .{}, false;
 
     seed := Seed.{
         head_pos = pos,
@@ -34,22 +34,22 @@ seed_plant :: (level: *Level, pos: Vector2i, dir: Vector2i) -> Seed, bool {
         active = true,
     };
 
-    other, found := seed_at_any_node(level, pos, null);
-    if found {
-        other.head_dir += dir;
-        if abs(dir.x) > abs(dir.y) {
-            other.prefer_x = true;
-        } else {
-            other.prefer_x = false;
-        }
+    // other, found := seed_at_any_node(level, pos, null);
+    // if found {
+    //     other.head_dir += dir;
+    //     if abs(dir.x) > abs(dir.y) {
+    //         other.prefer_x = true;
+    //     } else {
+    //         other.prefer_x = false;
+    //     }
 
-        other.max_energy += seed.max_energy - seed.energy;
-        seed.head_pos = other.head_pos;
-        seed.active = false;
-        other.active = true;
-        other.is_connected = false;
-        return .{}, true;
-    }
+    //     other.max_energy += seed.max_energy - seed.energy;
+    //     seed.head_pos = other.head_pos;
+    //     seed.active = false;
+    //     other.active = true;
+    //     other.is_connected = false;
+    //     return .{}, true;
+    // }
 
     return seed, true;
 }
