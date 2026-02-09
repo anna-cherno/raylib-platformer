@@ -83,7 +83,7 @@ debug_draw_game :: (g: *Game_State) {
     }
 
     if g_debug.plant_pos.x > 0 && g_debug.plant_pos.y > 0 {
-        DrawRectangle(g_debug.plant_pos.x * TILE_SIZE, g_debug.plant_pos.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, Fade(RED, 0.5));
+        DrawRectangle(g_debug.plant_pos.x * TILE_SIZE, g_debug.plant_pos.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, Fade(RED, 0.1));
     }
 }
 

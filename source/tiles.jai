@@ -34,6 +34,7 @@ Tile_Flags :: enum_flags u8 {
     FLIPPED_X :: 0x01;
     FLIPPED_Y :: 0x02;
     MANUAL    :: 0x04;
+    SEED      :: 0x08;
 }
 
 Collision_Map :: struct {
@@ -224,8 +225,11 @@ tilemap_update_autotiling :: (tilemap: *Tilemap, x: int, y: int, cols: s32, rows
             if tilemap.data[index].flags & Tile_Flags.MANUAL then continue;
             if tilemap_collision_at(tilemap, nx, ny, cols, rows) == .EMPTY {
                 tilemap.data[index].id = EMPTY_TILE;
+                tilemap.data[index].flags = 0;
                 continue;
             }
+
+            tilemap.data[index].flags = 0;
 
             mask := tilemap_calc_mask(tilemap, nx, ny, cols, rows);
             found_tile: s16 = EMPTY_TILE;

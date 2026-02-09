@@ -13,8 +13,8 @@ Player :: struct {
 
     // Movement.
     speed         := 1.5625*60;
-    jump_force    := -6.5625*60;
-    jump_release  := -12.5625*60*0.4;
+    jump_force    := -6.5625*40;
+    jump_release  := -12.5625*30*0.4;
     acceleration  := 0.118164*60*60*1.5;
     friction      := 0.118164*60*60*1.5;
     gravity_scale := 1.0;
@@ -298,6 +298,12 @@ player_collect_action :: () -> Player_Action {
     a.remove_all_seeds = IsKeyPressed(.KEY_R);
 
     return a;
+}
+
+player_at :: (player: *Player, pos: Vector2i) -> bool {
+    tile_pos1 := world_to_tile(player.position) + Vector2i.{ 0, -1 };
+    tile_pos2 := tile_pos1 + .{ 0, -1};
+    return tile_pos1 == pos || tile_pos2 == pos;
 }
 
 #scope_file

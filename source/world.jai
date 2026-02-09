@@ -8,8 +8,10 @@ Level :: struct {
     bounds: Rectangle;
     cols, rows: s32;
 
+    player:   *Player;
     layers:   [..]Tilemap;
     seeds:    [..]Seed;
+    fruit:    Vector2i;
 
     active := true;
 }
@@ -51,6 +53,7 @@ level_create :: (name: string, cols: s32, rows: s32) -> *Level {
     level.bounds = {0, 0, xx (cols * TILE_SIZE), xx (rows * TILE_SIZE)};
     level.cols = cols;
     level.rows = rows;
+    level.player = *g_game.player;
 
     // Default tile layer.
     ok, tileset := table_find(*g_assets.tilesets, "green_tileset");
@@ -99,4 +102,6 @@ level_draw :: (level: *Level, camera: Camera2D) {
     for *s: level.seeds {
         seed_draw(s);
     }
+
+    DrawCircleV(.{ xx (level.fruit.x * TILE_SIZE + TILE_SIZE * 0.5), xx (level.fruit.y * TILE_SIZE + TILE_SIZE * 0.5) }, 4.0, RED);
 }

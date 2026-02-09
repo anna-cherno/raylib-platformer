@@ -50,16 +50,27 @@ game_update :: (game: *Game_State, dt: float) {
         plant_pos := world_to_tile(game.player.position + .{ xx action.plant_dir.x, xx action.plant_dir.y + skin});
         g_debug.plant_pos = plant_pos;
         dir := -action.plant_dir;
-        seed, ok := seed_plant(level, plant_pos, dir);
-        if ok && game.player.seeds_left > 0 {
-            array_add(*level.seeds, seed);
-            game.player.seeds_left -= 1;
+        if game.player.seeds_left > 0 {
+            seed, ok := seed_plant(level, plant_pos, dir);
+            if ok {
+                if seed.active {
+                    array_add(*level.seeds, seed);
+                }
+                game.player.seeds_left -= 1;
+            }
         }
     }
 
     if action.remove_all_seeds {
         array_reset(*level.seeds);
         game.player.seeds_left = game.player.seeds_max;
+        for * level.layers[0].data {
+            if it.flags & .SEED {
+                it.collision = .EMPTY;
+                it.id = EMPTY_TILE;
+                it.flags = 0;
+            }
+        }
     }
 
     player_update(*game.player, level, dt);
@@ -74,6 +85,7 @@ game_draw :: (game: *Game_State) {
 
     BeginMode2D(game.camera);
         world_draw(game.world, game.camera);
+        draw_grid(game.world.levels[game.world.current_level_index].bounds);
         #if DEBUG
             if g_debug.enabled then debug_draw_game(game);
 

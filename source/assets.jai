@@ -22,6 +22,7 @@ assets_to_load :: Asset_Entry.[
     .{"player",        .TEXTURE, "textures/player.png"},
     .{"green_tileset", .TEXTURE, "textures/green_tileset.png"},
     .{"1bit_tileset",  .TEXTURE, "textures/1bit_tileset.png"},
+    .{"arrows",        .TEXTURE, "textures/arrows.png"},
 
     .{"green_tileset", .TILESET, "tilesets/green_tileset.data"},
     .{"1bit_tileset",  .TILESET, "tilesets/1bit_tileset.data"},

@@ -16,6 +16,18 @@ draw_grid :: (bounds: Rectangle) {
 }
 
 draw_bounds :: (bounds: Rectangle) {
-    // DrawRectangleRec(bounds, .{ 50, 50, 50, 255 } );
-    DrawRectangleRec(bounds, RAYWHITE);
+    DrawRectangleRec(bounds, .{ 25, 25, 25, 255 } );
+    // DrawRectangleRec(bounds, RAYWHITE);
+}
+
+draw_arrow :: (v: Vector2i, position: Vector2) {
+    found, texture := table_find(*g_assets.textures, "arrows");
+    if !found then true;
+    src := Rectangle.{0, 0, 16, 16};
+    dst := Rectangle.{position.x, position.y, 8, 8};
+
+    angle_rad := atan2(xx v.x, xx -v.y);
+    angle_deg := angle_rad * (180.0 / PI);
+
+    DrawTexturePro(texture, src, dst, .{0, 0}, angle_deg, WHITE);
 }

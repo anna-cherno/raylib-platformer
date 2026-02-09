@@ -147,6 +147,9 @@ editor_update :: (editor: *Editor_State, dt: float) {
             layer.data[idx].flags = 0;
             tilemap_update_autotiling(*layer, tx, ty, editor.level.cols, editor.level.rows);
         }
+        if IsKeyDown(.KEY_F) {
+            editor.level.fruit = Vector2i.{xx tx, xx ty};
+        }
     }
 }
 
