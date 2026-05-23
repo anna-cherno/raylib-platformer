@@ -3,8 +3,19 @@ Vector2i :: struct {
     #overlay (x) component: [2] s32;
 }
 
+operator + :: (a: Vector2i, b: s32) -> Vector2i {
+    return Vector2i.{ a.x + b, a.y + b };
+}
+
+operator * :: (a: Vector2i, b: s32) -> Vector2i {
+    return Vector2i.{ a.x * b, a.y * b };
+}
 operator + :: (a: Vector2i, b: Vector2i) -> Vector2i {
     return Vector2i.{ a.x + b.x, a.y + b.y };
+}
+
+operator + :: (a: Vector2, b: Vector2i) -> Vector2 {
+    return Vector2.{ a.x + b.x, a.y + b.y };
 }
 
 operator == :: (a: Vector2i, b: Vector2i) -> bool {

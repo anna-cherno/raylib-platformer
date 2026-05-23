@@ -127,7 +127,7 @@ seed_place_tile :: (level: *Level, pos: Vector2i) {
     }
     index := tile_index(pos.x, pos.y, level.cols);
     level.layers[0].data[index].collision = .SOLID;
-    level.layers[0].data[index].id = 10;
+    level.layers[0].data[index].id = -1;
     level.layers[0].data[index].flags |= .MANUAL | .SEED;
 }
 

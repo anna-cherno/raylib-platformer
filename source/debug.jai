@@ -3,13 +3,17 @@ Debug_State :: struct {
 
     show_camera := true;
     show_entity_info := true;
-    show_player_colliders := false;
+    show_player_colliders := true;
     show_world_colliders := true;
     show_grid := false;
 
-    time_scale := true;
+    time_scale := 1.0;
     seed_len := 0;
     plant_pos: Vector2i;
+    plant_pos_vec: Vector2;
+
+    min_tx, max_tx: int;
+    min_ty, max_ty: int;
 }
 
 debug_init :: () {
@@ -85,6 +89,9 @@ debug_draw_game :: (g: *Game_State) {
     if g_debug.plant_pos.x > 0 && g_debug.plant_pos.y > 0 {
         DrawRectangle(g_debug.plant_pos.x * TILE_SIZE, g_debug.plant_pos.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, Fade(RED, 0.1));
     }
+    if g_debug.plant_pos_vec.x > 0 && g_debug.plant_pos_vec.y > 0 {
+        DrawCircleV(g_debug.plant_pos_vec, 2.0, RED);
+    }
 }
 
 debug_draw_world_colliders :: (w: *World) {
@@ -124,7 +131,13 @@ debug_draw_collider :: (col: Collision_Type, tx: int, ty: int) {
 
 debug_draw_player_colliders :: (p: *Player) {
     // Draw player's collider.
-    DrawRectangleRec(player_collider(p), Fade(RED, 0.1));
+    // DrawRectangleRec(player_collider(p), Fade(RED, 0.5));
+
+    for ty: g_debug.min_ty..g_debug.max_ty {
+        for tx: g_debug.min_tx..g_debug.max_tx {
+            DrawRectangle(xx (tx * TILE_SIZE), xx (ty * TILE_SIZE), TILE_SIZE, TILE_SIZE, Fade(DARKBLUE, 0.5));
+        }
+    }
 
     // Draw player's pivot.
     DrawCircle(xx p.position.x, xx p.position.y, 1, Fade(RED, 0.9));

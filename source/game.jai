@@ -43,12 +43,20 @@ game_update :: (game: *Game_State, dt: float) {
 
     level := game.world.levels[game.world.current_level_index];
     if action.plant {
-        skin := -1.0;
-        if action.plant_dir.y < 0 {
-            skin -= game.player.size.y + 10;
-        }
-        plant_pos := world_to_tile(game.player.position + .{ xx action.plant_dir.x, xx action.plant_dir.y + skin});
+        left := game.player.position.x - game.player.width * 0.5;
+        right := game.player.position.x + game.player.width * 0.5;
+        top := game.player.position.y - game.player.height;
+        bottom := game.player.position.y;
+
+        plant_offset := Vector2.{ game.player.position.x, bottom - 4 };
+        if action.plant_dir.x > 0 then plant_offset.x = right + 4;
+        else if action.plant_dir.x < 0 then plant_offset.x = left - 4;
+        if action.plant_dir.y > 0 then plant_offset.y = bottom + 4;
+        else if action.plant_dir.y < 0 then plant_offset.y = top - 4;
+
+        plant_pos := world_to_tile(plant_offset);
         g_debug.plant_pos = plant_pos;
+        g_debug.plant_pos_vec = plant_offset;
         dir := -action.plant_dir;
         if game.player.seeds_left > 0 {
             seed, ok := seed_plant(level, plant_pos, dir);
