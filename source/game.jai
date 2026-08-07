@@ -59,6 +59,7 @@ game_update :: (game: *Game_State, dt: float) {
         g_debug.plant_pos_vec = plant_offset;
         dir := -action.plant_dir;
         if game.player.seeds_left > 0 {
+            seed_snapshot_take(level);
             seed, ok := seed_plant(level, plant_pos, dir);
             if ok {
                 if seed.active {
@@ -70,6 +71,8 @@ game_update :: (game: *Game_State, dt: float) {
     }
 
     if action.remove_all_seeds {
+        array_free(level.seed_snapshot.seeds);
+        array_free(level.seed_snapshot.tiles);
         array_reset(*level.seeds);
         game.player.seeds_left = game.player.seeds_max;
         for * level.layers[0].data {
@@ -78,6 +81,13 @@ game_update :: (game: *Game_State, dt: float) {
                 it.id = EMPTY_TILE;
                 it.flags = 0;
             }
+        }
+    }
+
+    if action.undo_seed {
+        if seed_snapshot_valid(level.seed_snapshot) {
+            seed_snapshot_restore(level);
+            game.player.seeds_left += 1;
         }
     }
 

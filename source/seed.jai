@@ -1,4 +1,4 @@
-SEED_MAX_ENERGY :: 3;
+SEED_MAX_ENERGY :: 4;
 
 Seed :: struct {
     head_pos: Vector2i;
@@ -12,11 +12,16 @@ Seed :: struct {
     max_energy: int = SEED_MAX_ENERGY;
 
     grow_timer: float;
-    grow_time: float = 0.2;
+    grow_time: float = 0.1;
 
     nodes: [..]Vector2i;
     is_connected: bool;
     active: bool;
+}
+
+Seed_Snapshot :: struct {
+    seeds: [..]Seed;
+    tiles: [..]Tile;
 }
 
 seed_plant :: (level: *Level, pos: Vector2i, dir: Vector2i) -> Seed, bool {
@@ -34,30 +39,12 @@ seed_plant :: (level: *Level, pos: Vector2i, dir: Vector2i) -> Seed, bool {
         active = true,
     };
 
-    // other, found := seed_at_any_node(level, pos, null);
-    // if found {
-    //     other.head_dir += dir;
-    //     if abs(dir.x) > abs(dir.y) {
-    //         other.prefer_x = true;
-    //     } else {
-    //         other.prefer_x = false;
-    //     }
-
-    //     other.max_energy += seed.max_energy - seed.energy;
-    //     seed.head_pos = other.head_pos;
-    //     seed.active = false;
-    //     other.active = true;
-    //     other.is_connected = false;
-    //     return .{}, true;
-    // }
-
     return seed, true;
 }
 
 seed_step :: (seed: *Seed, level: *Level, dt: float) {
     if !seed.active then return;
     if seed.energy >= seed.max_energy {
-        // seed.head_dir = .{0, 0};
         seed.active = false;
         return;
     }
@@ -72,11 +59,15 @@ seed_step :: (seed: *Seed, level: *Level, dt: float) {
     other, found := seed_at_any_node(level, next_pos, seed);
     if found {
         other.head_dir += next_dir;
-        if abs(next_dir.x) > abs(next_dir.y) {
-            other.prefer_x = true;
-        } else {
-            other.prefer_x = false;
+
+        other.head_dir.x = sign(other.head_dir.x);
+        other.head_dir.y = sign(other.head_dir.y);
+        if other.head_dir.x == 0 && other.head_dir.y == 0 {
+            other.head_dir = next_dir;
         }
+
+        if abs(next_dir.x) > abs(next_dir.y) other.prefer_x = true;
+        else                                 other.prefer_x = false;
 
         other.max_energy += seed.max_energy - seed.energy;
         seed.max_energy = 0;
@@ -93,8 +84,6 @@ seed_step :: (seed: *Seed, level: *Level, dt: float) {
         seed.head_pos = next_pos;
         seed.energy += 1;
         seed_place_tile(level, seed.head_pos);
-    } else {
-        // seed.active = false;
     }
 }
 
@@ -142,6 +131,41 @@ seed_draw :: (s: *Seed) {
     for node_pos: s.nodes {
         DrawRectangleV(.{ xx (node_pos.x * TILE_SIZE + TILE_SIZE / 4.0), xx (node_pos.y * TILE_SIZE + TILE_SIZE / 4.0) }, .{ xx TILE_SIZE / 2.0, xx TILE_SIZE / 2.0 }, LIME);
     }
+}
+
+// Takes a snapshot of the current seed state for undo purposes.
+seed_snapshot_take :: (level: *Level) {
+    snapshot := level.seed_snapshot;
+
+    array_free(snapshot.seeds);
+    array_copy(*snapshot.seeds, level.seeds);
+
+    tile_count := level.layers[0].data.count;
+    array_resize(*snapshot.tiles, tile_count);
+    for i: 0..tile_count-1 {
+        snapshot.tiles[i] = level.layers[0].data[i];
+    }
+}
+
+seed_snapshot_restore :: (level: *Level) {
+    if !seed_snapshot_valid(level.seed_snapshot) return;
+
+    snapshot := *level.seed_snapshot;
+
+    count := min(snapshot.tiles.count, level.layers[0].data.count);
+    for i: 0..count-1 level.layers[0].data[i] = snapshot.tiles[i];
+
+    // Restore seeds.
+    array_free(level.seeds);
+    array_copy(*level.seeds, snapshot.seeds);
+
+    // Consume the snapshot.
+    array_free(snapshot.seeds);
+    array_free(snapshot.tiles);
+}
+
+seed_snapshot_valid :: (s: Seed_Snapshot) -> bool {
+    return s.seeds.count > 0 || s.tiles.count > 0;
 }
 
 #scope_file

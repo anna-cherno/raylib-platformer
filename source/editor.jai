@@ -13,6 +13,7 @@ Editor_State :: struct {
     selected_layer_index: int;
     mouse_inside_editor := false;
     show_grid := true;
+    hovered_tile: Vector2i;
 
     // Panels.
     left_panel_rect:   Rectangle;
@@ -55,11 +56,12 @@ Editor_Tileset_Mode :: struct {
     should_delete_rule_index := -1;
 
     // Gui states.
+    tileset_min_width := 450.0;
     tileset_rect: Rectangle;
     tileset_content_rect: Rectangle;
     tileset_scroll: Vector2;
     tileset_view: Rectangle;
-    tileset_zoom := 1.0;
+    tileset_zoom := 3.0;
     tile_size: float = xx TILE_SIZE;
     rule_scroll: Vector2;
     rule_view: Rectangle;
@@ -135,6 +137,7 @@ editor_update :: (editor: *Editor_State, dt: float) {
         layer := editor.level.layers[editor.selected_layer_index];
         tx, ty := editor_mouse_tile(editor.camera, mouse_pos);
         if tx < 0 || ty < 0 || tx >= editor.level.cols || ty >= editor.level.rows then return;
+        editor.hovered_tile = .{xx tx, xx ty};
 
         idx := tile_index(tx, ty, editor.level.cols);
         if IsMouseButtonDown(MOUSE_LEFT_BUTTON) {
@@ -179,21 +182,24 @@ editor_draw :: (editor: *Editor_State) {
 editor_draw_viewport :: (editor: *Editor_State) {
     BeginMode2D(editor.camera);
         level_draw(editor.level, editor.camera);
-        // debug_draw_game(editor.game);
+        draw_grid(editor.level.bounds);
         player_draw(editor.player);
 
         if !editor.mouse_inside_editor {
-            tx, ty := editor_mouse_tile(editor.camera, GetMousePosition());
-            rect := Rectangle.{ xx (tx * TILE_SIZE), xx (ty * TILE_SIZE), xx TILE_SIZE, xx TILE_SIZE };
-            DrawRectangleLinesEx(rect, 1, RED);
-
-            debug_draw_collider(editor.tileset_mode.selected_collision, tx, ty);
+            rect := Rectangle.{
+                xx (editor.hovered_tile.x * TILE_SIZE),
+                xx (editor.hovered_tile.y * TILE_SIZE),
+                xx TILE_SIZE,
+                xx TILE_SIZE,
+            };
+            DrawRectangleLinesEx(rect, 1, ORANGE);
+            debug_draw_collider(editor.tileset_mode.selected_collision, editor.hovered_tile.x, editor.hovered_tile.y);
         }
     EndMode2D();
 }
 
 editor_mouse_tile :: inline (cam: Camera2D, mouse_pos: Vector2) -> int, int {
-    mouse_world  := GetScreenToWorld2D(mouse_pos, cam);
+    mouse_world := GetScreenToWorld2D(mouse_pos, cam);
     return world_to_tile_x(mouse_world.x), world_to_tile_y(mouse_world.y);
 }
 
@@ -293,10 +299,10 @@ update_camera :: (camera: *Camera2D) {
     wheel := GetMouseWheelMove();
     if wheel != 0 {
         mouse_screen := GetMousePosition();
-        before := GetScreenToWorld2D(mouse_screen, camera.*);
+        before := GetScreenToWorld2D(mouse_screen, camera);
         zoom_factor := 1.0 + wheel * 0.05;
         camera.zoom = clamp(camera.zoom * zoom_factor, 0.2, 10);
-        after := GetScreenToWorld2D(mouse_screen, camera.*);
+        after := GetScreenToWorld2D(mouse_screen, camera);
         camera.target += before - after;
     }
 }
@@ -308,11 +314,11 @@ init_tileset_mode :: (editor: *Editor_State, tileset: *Tileset) -> ok: bool, err
     editor.tileset_mode.tileset_rect = .{
         editor.bottom_panel_rect.x,
         editor.bottom_panel_rect.y + 52,
-        xx clamp(tileset.texture.width, 150, 350),
+        xx clamp(tileset.texture.width, 300, 450),
         editor.bottom_panel_rect.height - 82
     };
     editor.tileset_mode.tileset = tileset;
-    editor.tileset_mode.tile_size = xx tileset.tile_size;
+    editor.tileset_mode.tile_size = editor.tileset_mode.tileset.texture.width / editor.tileset_mode.tileset.cols * editor.tileset_mode.tileset_zoom;
     editor.tileset_mode.initialized = true;
 
     return true, "";
@@ -335,7 +341,7 @@ update_tileset_mode :: (using editor: *Editor_State, mouse_pos: Vector2) {
         if wheel != 0 && IsKeyDown(.KEY_LEFT_ALT) {
             mouse_screen := GetMousePosition();
             zoom_factor := 1.0 + wheel * 0.05;
-            tileset_mode.tileset_zoom = clamp(tileset_mode.tileset_zoom * zoom_factor, 0.5, 6);
+            tileset_mode.tileset_zoom = clamp(tileset_mode.tileset_zoom * zoom_factor, 2, 6);
             tileset_mode.tile_size = cast(float) tileset_mode.tileset.texture.width / cast(float) tileset_mode.tileset.cols * tileset_mode.tileset_zoom;
         }
 
@@ -402,7 +408,7 @@ draw_tileset_mode :: (editor: *Editor_State) {
     dropdown_text := join(..editor.tileset_names, ";",, allocator = temp);
     if GuiDropdownBox(
         .{ anchor.x, anchor.y, editor.tileset_mode.tileset_rect.width - 55, 25 },
-        get_c_string(dropdown_text),
+        to_c_string(dropdown_text),
         *editor.tileset_mode.tileset_dropdown_active,
         editor.tileset_mode.tileset_dropdown_edit
     ) then editor.tileset_mode.tileset_dropdown_edit = !editor.tileset_mode.tileset_dropdown_edit;
@@ -415,6 +421,7 @@ draw_tileset_mode :: (editor: *Editor_State) {
     editor.tileset_mode.should_save_tileset = xx GuiButton(.{ editor.tileset_mode.tileset_rect.width - 50, anchor.y, 50, 25 }, "Save");
 }
 
+// Draws the tileset picker GUI..
 draw_tileset_picker :: (state: *Editor_Tileset_Mode) {
     content_rect := Rectangle.{0, 0, state.tileset.texture.width * state.tileset_zoom - 2, state.tileset.texture.height * state.tileset_zoom };
 
@@ -595,7 +602,7 @@ draw_tilemap_layer_item :: (editor: *Editor_State, tilemap: *Tilemap, index: int
 
     dropdown_text := join(..editor.tileset_names, ";",, allocator=temp);
     edit := editor.tilemap_dropdown_edited_index == index;
-    if GuiDropdownBox(.{ anchor.x + margin_between, anchor.y + margin_top, 105, 25 }, get_c_string(dropdown_text), xx *tileset_index, edit ) {
+    if GuiDropdownBox(.{ anchor.x + margin_between, anchor.y + margin_top, 105, 25 }, to_c_string(dropdown_text), xx *tileset_index, edit ) {
         if edit {
             editor.tilemap_dropdown_edited_index = -1;
             name := editor.tileset_names[tileset_index];
@@ -608,7 +615,7 @@ draw_tilemap_layer_item :: (editor: *Editor_State, tilemap: *Tilemap, index: int
     icon := ifx tilemap.visible then "#44#" else "#45#";
 
     x := anchor.x + 105 + margin_between * 2;
-    GuiToggle(.{ x, anchor.y + margin_top, 25, 25 }, get_c_string(icon), *tilemap.visible);
+    GuiToggle(.{ x, anchor.y + margin_top, 25, 25 }, to_c_string(icon), *tilemap.visible);
 
     x += 25 + margin_between;
     if GuiButton(.{ x, anchor.y + margin_top, 25, 25 }, "#121#") {

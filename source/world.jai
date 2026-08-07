@@ -13,6 +13,8 @@ Level :: struct {
     seeds:    [..]Seed;
     fruit:    Vector2i;
 
+    seed_snapshot: Seed_Snapshot;
+
     active := true;
 }
 
@@ -68,6 +70,8 @@ level_destroy :: (level: *Level) {
     for * level.layers {
         tilemap_destroy(it);
     }
+    array_free(level.seed_snapshot.seeds);
+    array_free(level.seed_snapshot.tiles);
     array_free(level.seeds);
     array_free(level.layers);
 

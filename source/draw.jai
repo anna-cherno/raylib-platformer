@@ -16,8 +16,7 @@ draw_grid :: (bounds: Rectangle) {
 }
 
 draw_bounds :: (bounds: Rectangle) {
-    DrawRectangleRec(bounds, .{ 25, 25, 25, 255 } );
-    // DrawRectangleRec(bounds, RAYWHITE);
+    DrawRectangleRec(bounds, RAYWHITE);
 }
 
 draw_arrow :: (v: Vector2i, position: Vector2) {

@@ -21,11 +21,12 @@
 
 HPIXELS :: 380;
 ASPECT :: 16.0 / 10.0;
+SCALE  :: 2;
 
 // Window params.
-window_width: s32;
-window_height: s32;
-render_scale: float;
+window_width: s32 = xx (HPIXELS * ASPECT * SCALE);
+window_height: s32 = HPIXELS * SCALE;
+render_scale: float = 2.0;
 
 // Global absolute path to asset folder.
 data_folder : string;
@@ -50,7 +51,7 @@ main :: () {
 
     ok, err := init_global_states();
     if !ok {
-        TraceLog(.LOG_ERROR, get_c_string(err));
+        TraceLog(.LOG_ERROR, to_c_string(err));
         return;
     }
     defer close_global_states();
@@ -72,25 +73,22 @@ main :: () {
 
         }
 
-        // Draw to the target texture.
-        if g_game.mode == .PLAY {
-            BeginTextureMode(render_target);
-                game_draw(*g_game);
-            EndTextureMode();
-        }
+        // // Draw to the target texture.
+        // if g_game.mode == .PLAY {
+        //     BeginTextureMode(render_target);
+        //         game_draw(*g_game);
+        //     EndTextureMode();
+        // }
 
         // Draw the target texture to the screen.
         BeginDrawing();
             if g_game.mode == .PLAY {
-                src := Rectangle.{ 0, 0, xx render_target.texture.width, xx -render_target.texture.height};
-                dst := Rectangle.{ 0, 0, xx window_width, xx window_height };
-                DrawTexturePro(render_target.texture, src, dst, .{0, 0}, 0, WHITE);
+                // src := Rectangle.{ 0, 0, xx render_target.texture.width, xx -render_target.texture.height};
+                // dst := Rectangle.{ 0, 0, xx window_width, xx window_height };
+                // DrawTexturePro(render_target.texture, src, dst, .{0, 0}, 0, WHITE);
+                game_draw(*g_game);
             } else if g_game.mode == .EDITOR {
                 #if EDITOR editor_draw(*g_editor);
-            }
-
-            #if DEBUG {
-                if g_debug.enabled then debug_draw_ui(*g_game);
             }
         EndDrawing();
 
@@ -99,8 +97,8 @@ main :: () {
 }
 
 init_raylib_stuff :: () {
-    SetConfigFlags(.FLAG_WINDOW_HIGHDPI | .FLAG_VSYNC_HINT);
-    InitWindow(100, 100, "Seedo");
+    SetConfigFlags(.FLAG_VSYNC_HINT);
+    InitWindow(window_width, window_height, "Seedo");
 
     // Detect best monitor (bigger wins (for dev)).
     monitor := GetCurrentMonitor();
@@ -111,8 +109,8 @@ init_raylib_stuff :: () {
         }
     }
 
-    init_window_dimensions(monitor);
-    SetWindowSize(window_width, window_height);
+    // init_window_dimensions(monitor);
+    // SetWindowSize(window_width, window_height);
     SetWindowPosition(
         (GetMonitorWidth(monitor) - window_width) / 2,
         (GetMonitorHeight(monitor) - window_height) / 2,
@@ -120,12 +118,11 @@ init_raylib_stuff :: () {
 
     // Set refresh rate.
     SetTargetFPS(GetMonitorRefreshRate(monitor));
-
     SetWindowMonitor(monitor);
 
     // We are rendering in the render target texture.
-    render_target = LoadRenderTexture(window_width, window_height);
-    SetTextureFilter(render_target.texture, .TEXTURE_FILTER_POINT);
+    // render_target = LoadRenderTexture(window_width, window_height);
+    // SetTextureFilter(render_target.texture, .TEXTURE_FILTER_POINT);
 }
 
 init_window_dimensions :: (monitor: s32) {
@@ -191,10 +188,10 @@ close_raylib_stuff :: () {
 toggle_mode :: () {
     if g_game.mode == .PLAY {
         g_game.mode = .EDITOR;
-        g_editor.camera.zoom = render_scale;
-        g_editor.camera.offset.x = xx (window_width / 2);
-        g_editor.camera.offset.y = xx (window_height / 2);
-        g_editor.camera.target = g_game.player.position;
+        // g_editor.camera.zoom = render_scale;
+        // g_editor.camera.offset.x = xx (window_width / 2);
+        // g_editor.camera.offset.y = xx (window_height / 2);
+        // g_editor.camera.target = g_game.player.position;
         g_debug.show_grid = true;
     } else if g_game.mode == .EDITOR {
         g_game.mode = .PLAY;

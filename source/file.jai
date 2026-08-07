@@ -60,7 +60,7 @@ load_tileset_data_from_file :: (tileset: *Tileset, filename: string) -> ok: bool
     if !found {
         return false, "Failed to read tileset texture name";
     }
-    tileset.name = line;
+    tileset.name = copy_string(line);
 
     // Read tile size.
     line, found = consume_next_line(*handler);

@@ -21,11 +21,9 @@ Asset_Type :: enum {
 assets_to_load :: Asset_Entry.[
     .{"player",        .TEXTURE, "textures/player.png"},
     .{"green_tileset", .TEXTURE, "textures/green_tileset.png"},
-    .{"1bit_tileset",  .TEXTURE, "textures/1bit_tileset.png"},
     .{"arrows",        .TEXTURE, "textures/arrows.png"},
 
     .{"green_tileset", .TILESET, "tilesets/green_tileset.data"},
-    .{"1bit_tileset",  .TILESET, "tilesets/1bit_tileset.data"},
 ];
 
 assets_init :: () -> ok: bool, err: string { // Kind-a go pattern
@@ -61,7 +59,7 @@ assets_init :: () -> ok: bool, err: string { // Kind-a go pattern
 
     // Raygui style for editor.
     #if EDITOR {
-        load_gui_style("editor/style_amber.rgs");
+        load_gui_style("editor/style_genesis.rgs");
     }
 
     return true, "";

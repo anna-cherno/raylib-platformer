@@ -47,8 +47,8 @@ Player :: struct {
     current_anim: *Animation;
 
     // Gameplay stuff.
-    seeds_max  := 3;
-    seeds_left := 3;
+    seeds_max  := 4;
+    seeds_left := 4;
 }
 
 Player_Action :: struct {
