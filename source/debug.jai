@@ -1,4 +1,4 @@
-Debug_State :: struct {
+Debug :: struct {
     enabled := true;
 
     show_camera := true;
@@ -16,21 +16,22 @@ Debug_State :: struct {
     min_ty, max_ty: int;
 }
 
-debug_init :: () {
+init_debug :: () -> bool {
     // GuiSetStyle(xx GuiControl.DEFAULT, xx GuiDefaultProperty.TEXT_SIZE, 10);
+    return true;
 }
 
-debug_close :: () {
-
+deinit_debug :: () -> bool {
+    return true;
 }
 
-debug_update :: () {
+update_debug :: () {
     if IsKeyPressed(.KEY_F1) {
-        g_debug.enabled = !g_debug.enabled;
+        debug.enabled = !debug.enabled;
     }
 }
 
-debug_draw_ui :: (g: *Game_State) {
+draw_debug_ui :: () {
     anchor := Vector2.{window_width-200.0, 0 };
     debug_rec := Rectangle.{anchor.x, anchor.y, 200, 100};
     margin := 15.0;
@@ -38,74 +39,61 @@ debug_draw_ui :: (g: *Game_State) {
 
     GuiPanel(debug_rec, null);
 
+    player := *game.player;
+
     // Player position.
     y := debug_rec.y + padding;
     GuiLabel(
         .{debug_rec.x + padding, y, 200, 20},
-        tprint("Position: %\0", g.player.position).data,
+        tprint("Position: %\0", player.position).data,
     );
 
     // Player is on ground
     y += margin;
     GuiLabel(
         .{debug_rec.x + padding, y, 200, 20},
-        tprint("On ground: %\0", g.player.is_grounded).data,
+        tprint("On ground: %\0", player.is_grounded).data,
     );
 
     // Movement state.
     y += margin;
     GuiLabel(
         .{debug_rec.x + padding, y, 200, 20},
-        tprint("Movement state %\0", g.player.state).data,
+        tprint("Movement state %\0", player.state).data,
     );
 
     // Velocity.
     y += margin;
     GuiLabel(
         .{debug_rec.x + padding, y, 300, 20},
-        tprint("Velocity %\0", g.player.velocity).data,
+        tprint("Velocity %\0", player.velocity).data,
     );
 
     // Game mode.
     y += margin;
     GuiLabel(
         .{debug_rec.x + padding, y, 250, 20},
-        tprint("Game mode %\0", g.mode).data,
-
+        tprint("Game mode %\0", game.mode).data,
     );
 }
 
-debug_draw_game :: (g: *Game_State) {
-    if g_debug.show_world_colliders {
-        debug_draw_world_colliders(g.world);
+draw_debug_game :: () {
+    if debug.show_player_colliders {
+        draw_debug_player_colliders();
     }
-    if g_debug.show_player_colliders {
-        debug_draw_player_colliders(*g.player);
-    }
-    if g_debug.show_grid {
-        draw_grid(g.world.levels[g.world.current_level_index].bounds);
+    if debug.show_grid {
+        draw_grid(game.world.levels[game.world.current_level_index].bounds);
     }
 
-    if g_debug.plant_pos.x > 0 && g_debug.plant_pos.y > 0 {
-        DrawRectangle(g_debug.plant_pos.x * TILE_SIZE, g_debug.plant_pos.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, Fade(RED, 0.1));
+    if debug.plant_pos.x > 0 && debug.plant_pos.y > 0 {
+        DrawRectangle(debug.plant_pos.x * TILE_SIZE, debug.plant_pos.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, Fade(RED, 0.1));
     }
-    if g_debug.plant_pos_vec.x > 0 && g_debug.plant_pos_vec.y > 0 {
-        DrawCircleV(g_debug.plant_pos_vec, 2.0, RED);
+    if debug.plant_pos_vec.x > 0 && debug.plant_pos_vec.y > 0 {
+        DrawCircleV(debug.plant_pos_vec, 2.0, RED);
     }
 }
 
-debug_draw_world_colliders :: (w: *World) {
-    // for y: 0..w.t_height-1 {
-    //     for x: 0..w.t_width-1 {
-    //         col := collision_at(x, y, *w.tilemaps[0]);
-    //         if col == .EMPTY continue;
-
-    //         debug_draw_collider(col, x, y);
-    //     }
-    // }
-}
-
-debug_draw_collider :: (col: Collision_Type, tx: int, ty: int) {
+draw_debug_collider :: (col: Collision_Type, tx: int, ty: int) {
     color := Fade(DARKBLUE, 0.5);
 
     top    := cast(float) ty * TILE_SIZE;
@@ -129,16 +117,14 @@ debug_draw_collider :: (col: Collision_Type, tx: int, ty: int) {
     }
 }
 
-debug_draw_player_colliders :: (p: *Player) {
-    // Draw player's collider.
-    // DrawRectangleRec(player_collider(p), Fade(RED, 0.5));
-
-    for ty: g_debug.min_ty..g_debug.max_ty {
-        for tx: g_debug.min_tx..g_debug.max_tx {
+draw_debug_player_colliders :: () {
+    for ty: debug.min_ty..debug.max_ty {
+        for tx: debug.min_tx..debug.max_tx {
             DrawRectangle(xx (tx * TILE_SIZE), xx (ty * TILE_SIZE), TILE_SIZE, TILE_SIZE, Fade(DARKBLUE, 0.5));
         }
     }
 
-    // Draw player's pivot.
-    DrawCircle(xx p.position.x, xx p.position.y, 1, Fade(RED, 0.9));
+    player := *game.player;
+    // pivot
+    DrawCircle(xx player.position.x, xx player.position.y, 1, Fade(RED, 0.9));
 }

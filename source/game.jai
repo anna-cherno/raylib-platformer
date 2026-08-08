@@ -1,63 +1,70 @@
 GRAVITY :: 0.363281*60*60;
 
-Game_State :: struct {
-    world: *World;
+Game :: struct {
+    state: Game_State;
+    
+    world: World;
     player: Player;
     camera: Camera2D;
-    mode: Game_Mode = .PLAY;
-    time_scale := 1.0;
+    input: Game_Input;
 
-    initialized: bool;
+    mode: Game_Mode;
+
+    time_scale := 1.0;
 }
 
-Game_Mode :: enum {
+Game_State :: enum u8 {
+    UNINITIALIZED;
+    RUNNING;
+    SHUTTING_DOWN;
+}
+
+Game_Mode :: enum u8 {
     PLAY;
     EDITOR;
 }
 
-game_init :: (game: *Game_State) -> ok: bool, err: string {
-    assert(game != null);
-
-    ok, err := player_init(*game.player, .{200, 100});
-    if !ok {
-        return false, err;
+init_game :: () -> bool {
+    if !init_player() {
+        log_error("Не удалось инициализировать игрока");
+        return false;
     }
+    
+    init_game_camera(game.player.position);
+    init_world();
+    init_player();
 
-    init_camera(*game.camera, game.player.position);
+    game.mode = .PLAY;
+    game.state = .RUNNING;
 
-    // Default world.
-    game.world = world_create();
-    assert(game.world.levels.count > 0);
-
-    game.initialized = true;
-
-    return true, "";
+    return true;
 }
 
-game_update :: (game: *Game_State, dt: float) {
-    assert(game.initialized);
-
-    action := player_collect_action();
+update_game :: (dt: float) {
+    assert(game.state == .RUNNING);
 
     dt *= game.time_scale;
 
-    level := game.world.levels[game.world.current_level_index];
-    if action.plant {
+    level := current_level(); 
+    if game.input.plant_pressed {
+        plant_dir := Vector2i.{xx game.input.movement.x, xx game.input.movement.y};
+        
         left := game.player.position.x - game.player.width * 0.5;
         right := game.player.position.x + game.player.width * 0.5;
         top := game.player.position.y - game.player.height;
         bottom := game.player.position.y;
 
         plant_offset := Vector2.{ game.player.position.x, bottom - 4 };
-        if action.plant_dir.x > 0 then plant_offset.x = right + 4;
-        else if action.plant_dir.x < 0 then plant_offset.x = left - 4;
-        if action.plant_dir.y > 0 then plant_offset.y = bottom + 4;
-        else if action.plant_dir.y < 0 then plant_offset.y = top - 4;
+        if plant_dir.x > 0      then plant_offset.x = right + 4;
+        else if plant_dir.x < 0 then plant_offset.x = left - 4;
+        if plant_dir.y > 0      then plant_offset.y = bottom + 4;
+        else if plant_dir.y < 0 then plant_offset.y = top - 4;
 
         plant_pos := world_to_tile(plant_offset);
-        g_debug.plant_pos = plant_pos;
-        g_debug.plant_pos_vec = plant_offset;
-        dir := -action.plant_dir;
+        debug.plant_pos = plant_pos;
+        debug.plant_pos_vec = plant_offset;
+        dir := -plant_dir;
+        
         if game.player.seeds_left > 0 {
             seed_snapshot_take(level);
             seed, ok := seed_plant(level, plant_pos, dir);
@@ -70,7 +77,7 @@ game_update :: (game: *Game_State, dt: float) {
         }
     }
 
-    if action.remove_all_seeds {
+    if game.input.reset_plants_pressed {
         array_free(level.seed_snapshot.seeds);
         array_free(level.seed_snapshot.tiles);
         array_reset(*level.seeds);
@@ -84,59 +91,89 @@ game_update :: (game: *Game_State, dt: float) {
         }
     }
 
-    if action.undo_seed {
+    if game.input.undo_seed_pressed {
         if seed_snapshot_valid(level.seed_snapshot) {
             seed_snapshot_restore(level);
             game.player.seeds_left += 1;
         }
     }
-
-    player_update(*game.player, level, dt);
-    world_update(game.world, dt);
-    clamp_camera(*game.camera, game.player.position, .{ xx window_width, xx window_height, level.bounds.width, level.bounds.height});
+    
+    update_world(dt);
+    update_player(dt);
+    update_game_camera();
 }
 
-game_draw :: (game: *Game_State) {
-    assert(game.initialized);
+draw_game :: () {
+    assert(game.state == .RUNNING);
 
-    ClearBackground(BLACK);
-
-    BeginMode2D(game.camera);
-        world_draw(game.world, game.camera);
-        draw_grid(game.world.levels[game.world.current_level_index].bounds);
-        #if DEBUG
-            if g_debug.enabled then debug_draw_game(game);
-
-        player_draw(*game.player);
+    camera := active_camera();
+    BeginMode2D(camera);
+        draw_world();
+        
+        level := current_level();
+        draw_grid(level.bounds);
+        
+        #if EDITOR {
+            if game.mode == .EDITOR then draw_editor_tile_hovers();
+        }
+        
+        #if DEBUG {
+            if debug.enabled then draw_debug_game();
+        }
     EndMode2D();
+
+    draw_ui();
+    
+    #if EDITOR {
+        if game.mode == .EDITOR then draw_editor_overlay();
+    }
 }
 
-game_close :: (game: *Game_State) {
-    assert(game.initialized);
+deinit_game :: () -> bool {
+    assert(game.state == .RUNNING);
+    
+    game.state = .SHUTTING_DOWN;
 
-    player_close(*game.player);
-    world_destroy(game.world);
+    deinit_player();
+    deinit_world();
+    
+    return true;
 }
 
-#scope_file
-
-init_camera :: (camera: *Camera2D, initial_position: Vector2) {
-    // Init camera.
-    camera.zoom = 4;
-    camera.offset = .{ xx (window_width * 0.5), xx (window_height * 0.5) };
-    camera.target = initial_position;
+init_game_camera :: (initial_position: Vector2) {
+    game.camera.zoom = 4;
+    game.camera.offset = .{ xx (window_width * 0.5), xx (window_height * 0.5) };
+    game.camera.target = initial_position;
 }
 
-clamp_camera :: (camera: *Camera2D, position: Vector2, bounds: Rectangle) {
-    half_w := bounds.x * 0.5 / camera.zoom;
-    half_h := bounds.y * 0.5 / camera.zoom;
+update_game_camera :: () {
+    level := current_level();
+
+    half_w := (window_width * 0.5) / game.camera.zoom;
+    half_h := (window_height * 0.5) / game.camera.zoom;
 
     min_x := half_w;
-    max_x := bounds.width - half_w;
+    max_x := level.bounds.width - half_w;
     min_y := half_h;
-    max_y := bounds.height - half_h;
+    max_y := level.bounds.height - half_h;
 
-    camera.target = position;
-    camera.target.x = clamp(camera.target.x, min_x, max_x);
-    camera.target.y = clamp(camera.target.y, min_y, max_y);
+    game.camera.target = game.player.position;
+    game.camera.target.x = clamp(game.camera.target.x, min_x, max_x);
+    game.camera.target.y = clamp(game.camera.target.y, min_y, max_y);
+}
+
+active_camera :: inline () -> *Camera2D {
+    return ifx game.mode == .PLAY then *game.camera else *editor.camera;
+}
+
+log_error :: inline (text: string, args: ..Any) {
+    TraceLog(.LOG_ERROR, to_c_string(tprint(text, ..args)));
+}
+
+log_warning :: inline (text: string, args: ..Any) {
+    TraceLog(.LOG_WARNING, to_c_string(tprint(text, ..args)));
+}
+
+log_info :: inline (text: string, args: ..Any) {
+    TraceLog(.LOG_INFO, to_c_string(tprint(text, ..args)));
 }

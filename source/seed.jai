@@ -1,4 +1,4 @@
-SEED_MAX_ENERGY :: 4;
+SEED_MAX_ENERGY :: 3;
 
 Seed :: struct {
     head_pos: Vector2i;
@@ -79,7 +79,7 @@ seed_step :: (seed: *Seed, level: *Level, dt: float) {
         return;
     }
 
-    if !collision_at(next_pos.x, next_pos.y, level) && !player_at(level.player, next_pos) {
+    if !collision_at(next_pos.x, next_pos.y, level) && !player_at(next_pos) {
         array_add(*seed.nodes, next_pos);
         seed.head_pos = next_pos;
         seed.energy += 1;

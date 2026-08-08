@@ -4,7 +4,7 @@
 TILESET_FILE_VERSION :: 1;
 
 save_tileset_data_to_file :: (tileset: *Tileset) {
-    filename := tprint("%/tilesets/%.data", data_folder, tileset.name);
+    filename := tprint("%/tilesets/%.data", assets.data_folder, tileset.name);
     builder: String_Builder;
     builder.allocator = temp;
 
@@ -45,7 +45,7 @@ load_tileset_data_from_file :: (tileset: *Tileset, filename: string) -> ok: bool
     handler: Text_File_Handler;
     defer deinit(*handler);
 
-    filepath := tprint("%/%", data_folder, filename);
+    filepath := tprint("%/%", assets.data_folder, filename);
     found, short_name := split_from_right(filepath, "/");
     if !found {
         return false, tprint("File % not found", filename);

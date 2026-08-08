@@ -71,7 +71,7 @@ Collision_Type :: enum u8 {
     ONE_WAY_UP;
 }
 
-tilemap_create :: (level: *Level, initial_tileset: *Tileset, has_collisions := true) -> Tilemap {
+create_tilemap :: (level: *Level, initial_tileset: *Tileset, has_collisions := true) -> Tilemap {
     tilemap := Tilemap.{ tileset = initial_tileset, has_collisions = has_collisions };
     tilemap.name = sprint("Layer %", level.layers.count + 1);
     tilemap.data = NewArray(level.rows * level.cols, Tile);
@@ -79,10 +79,10 @@ tilemap_create :: (level: *Level, initial_tileset: *Tileset, has_collisions := t
     return tilemap;
 }
 
-tilemap_destroy :: (tilemap: *Tilemap) {
+destroy_tilemap :: (tilemap: *Tilemap) {
     free(tilemap.name);
-    tilemap.active = false;
     array_free(tilemap.data);
+    tilemap.active = false;
 }
 
 tile_index :: inline (tx: int, ty: int, t_width: int) -> int {

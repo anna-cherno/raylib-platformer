@@ -7,9 +7,11 @@
 
 #load "types.jai";
 #load "assets.jai";
+#load "input.jai";
 #load "animation.jai";
 #load "entity.jai";
 #load "player.jai";
+#load "ui.jai";
 #load "game.jai";
 #load "editor.jai";
 #load "world.jai";
@@ -20,76 +22,49 @@
 #load "file.jai";
 
 HPIXELS :: 380;
-ASPECT :: 16.0 / 10.0;
-SCALE  :: 2;
+ASPECT  :: 16.0 / 10.0;
+SCALE   :: 3;
 
-// Window params.
-window_width: s32 = xx (HPIXELS * ASPECT * SCALE);
+window_width : s32 = xx (HPIXELS * ASPECT * SCALE);
 window_height: s32 = HPIXELS * SCALE;
-render_scale: float = 2.0;
-
-// Global absolute path to asset folder.
-data_folder : string;
-
-// Render target texture.
-render_target: RenderTexture2D;
+render_scale : float = 3.0;
 
 // Global states.
-g_assets: Assets;
-g_game: Game_State;
-g_editor: Editor_State;
-g_debug: Debug_State;
+assets : Asset_Registry;
+game   : Game;
+editor : Editor;
+debug  : Debug;
 
 main :: () {
-    // Path to assets.
-    base_path := path_strip_filename(get_path_of_running_executable());
-    data_folder = join(base_path, "assets");
-    defer free(data_folder);
-
     init_raylib_stuff();
-    defer close_raylib_stuff();
+    defer deinit_raylib_stuff();
 
-    ok, err := init_global_states();
-    if !ok {
-        TraceLog(.LOG_ERROR, to_c_string(err));
+    if !init_global_states() {
+        TraceLog(.LOG_FATAL, "Не удалось инициализировать глобальные состояния");
+        exit(1);
         return;
     }
-    defer close_global_states();
+    defer deinit_global_states();
 
     while (!WindowShouldClose()) {
-        #if DEBUG debug_update();
-
+        #if DEBUG update_debug();
+        update_input();
+        
         #if EDITOR {
-            if IsKeyPressed(.KEY_TAB) {
-                toggle_mode();
+            if game.input.toggle_editor_pressed {
+                game.mode = ifx game.mode == .PLAY then .EDITOR else .PLAY;
             }
         }
 
         dt := GetFrameTime();
-        if g_game.mode == .PLAY {
-            game_update(*g_game, dt);
-        } else if g_game.mode == .EDITOR {
-            #if EDITOR editor_update(*g_editor, dt);
-
+        if game.mode == {
+            case .EDITOR; update_editor(dt);
+            case .PLAY;   update_game(dt);
         }
 
-        // // Draw to the target texture.
-        // if g_game.mode == .PLAY {
-        //     BeginTextureMode(render_target);
-        //         game_draw(*g_game);
-        //     EndTextureMode();
-        // }
-
-        // Draw the target texture to the screen.
         BeginDrawing();
-            if g_game.mode == .PLAY {
-                // src := Rectangle.{ 0, 0, xx render_target.texture.width, xx -render_target.texture.height};
-                // dst := Rectangle.{ 0, 0, xx window_width, xx window_height };
-                // DrawTexturePro(render_target.texture, src, dst, .{0, 0}, 0, WHITE);
-                game_draw(*g_game);
-            } else if g_game.mode == .EDITOR {
-                #if EDITOR editor_draw(*g_editor);
-            }
+            ClearBackground(BLACK);
+            draw_game();
         EndDrawing();
 
         reset_temporary_storage();
@@ -98,7 +73,7 @@ main :: () {
 
 init_raylib_stuff :: () {
     SetConfigFlags(.FLAG_VSYNC_HINT);
-    InitWindow(window_width, window_height, "Seedo");
+    InitWindow(window_width, window_height, "seeder");
 
     // Detect best monitor (bigger wins (for dev)).
     monitor := GetCurrentMonitor();
@@ -143,58 +118,77 @@ init_window_dimensions :: (monitor: s32) {
         window_width = cast(s32) (display_w * 0.9);
         window_height = cast(s32) (cast(float) window_width / ASPECT);
     }
-
 }
 
-init_global_states :: () -> ok: bool, err: string {
-    // Assets.
-    ok, err := assets_init();
-    if !ok {
-        return false, err;
+init_global_states :: () -> bool {
+    if !load_assets() {
+        log_error("Не удалось загрузить ассеты");
+        return false;
     }
 
-    // Game.
-    ok, err = game_init(*g_game);
-    if !ok {
-        return false, err;
+    if !init_game() {
+        log_error("Не удалось инициализировать игру");
+        return false;
     }
 
-    // Editor.
+    #if DEBUG {
+        if !init_debug() {
+            log_error("Не удалось инициализировать дебаг");
+            return false;
+        }
+    }
+    
     #if EDITOR {
-        ok, err = editor_init(*g_editor, *g_game);
-        if !ok {
-            return false, err;
+        if !init_editor() {
+            log_warning("Не удалось инициализировать редактор");
         }
     }
 
-    // Debug.
-    #if DEBUG debug_init();
-
-    return true, "";
+    return true;
 }
 
-close_global_states :: () {
-    #if DEBUG debug_close();
-    #if EDITOR editor_close(*g_editor);
-    game_close(*g_game);
-    assets_unload();
+deinit_global_states :: () -> bool {
+    #if EDITOR { 
+        if !deinit_editor() {
+            log_warning("Не удалось деинициализировать редактор");
+        }
+    }
+
+    #if DEBUG {
+        if !deinit_debug() {
+            log_error("Не удалось деинициализировать дебаг");
+            return false;
+        }
+    }
+    
+    if !deinit_game() {
+        log_error("Не удалось деинициализировать игру");
+        return false;
+    }
+        
+    if !unload_assets() {
+        log_error("Не удалось выгрузить ассеты");
+        return false;
+    }
+
+    return true;
 }
 
-close_raylib_stuff :: () {
-    UnloadRenderTexture(render_target);
+deinit_raylib_stuff :: () {
+    // UnloadRenderTexture(render_target);
     CloseWindow();
 }
 
 toggle_mode :: () {
-    if g_game.mode == .PLAY {
-        g_game.mode = .EDITOR;
-        // g_editor.camera.zoom = render_scale;
-        // g_editor.camera.offset.x = xx (window_width / 2);
-        // g_editor.camera.offset.y = xx (window_height / 2);
-        // g_editor.camera.target = g_game.player.position;
-        g_debug.show_grid = true;
-    } else if g_game.mode == .EDITOR {
-        g_game.mode = .PLAY;
-        g_debug.show_grid = false;
+    if game.mode == .PLAY {
+        game.mode = .EDITOR;
+        // game.editor.camera.zoom = render_scale;
+        // game.editor.camera.offset.x = xx (window_width / 2);
+        // game.editor.camera.offset.y = xx (window_height / 2);
+        // game.editor.camera.target = game.player.position;
+        debug.show_grid = true;
+    } else if game.mode == .EDITOR {
+        game.mode = .PLAY;
+        debug.show_grid = false;
     }
 }

@@ -1,4 +1,4 @@
-grid_line_thickness :: 0.5;
+GRID_LINE_THICKNESS :: 0.5;
 
 draw_grid :: (bounds: Rectangle) {
     start_x := cast(s32) (bounds.x / TILE_SIZE);
@@ -7,11 +7,11 @@ draw_grid :: (bounds: Rectangle) {
     end_y := cast(s32) ((bounds.y + bounds.height) / TILE_SIZE);
 
     for x: start_x .. end_x {
-        DrawLineEx(.{ xx (x * TILE_SIZE), bounds.y}, .{ xx (x * TILE_SIZE), (bounds.y + bounds.height)}, grid_line_thickness, Fade(DARKGRAY, 0.1));
+        DrawLineEx(.{ xx (x * TILE_SIZE), bounds.y}, .{ xx (x * TILE_SIZE), (bounds.y + bounds.height)}, GRID_LINE_THICKNESS, Fade(DARKGRAY, 0.1));
     }
 
     for y: start_y .. end_y {
-        DrawLineEx(.{ bounds.x, xx (y * TILE_SIZE) }, .{bounds.x + bounds.width, xx (y * TILE_SIZE) }, grid_line_thickness, Fade(DARKGRAY, 0.1));
+        DrawLineEx(.{ bounds.x, xx (y * TILE_SIZE) }, .{bounds.x + bounds.width, xx (y * TILE_SIZE) }, GRID_LINE_THICKNESS, Fade(DARKGRAY, 0.1));
     }
 }
 
@@ -20,8 +20,12 @@ draw_bounds :: (bounds: Rectangle) {
 }
 
 draw_arrow :: (v: Vector2i, position: Vector2) {
-    found, texture := table_find(*g_assets.textures, "arrows");
-    if !found then true;
+    found, texture := table_find(*assets.textures, "arrows");
+    if !found {
+        log_warning("Не удалось найти ассет arrows");
+        return;
+    }
+    
     src := Rectangle.{0, 0, 16, 16};
     dst := Rectangle.{position.x, position.y, 8, 8};
 

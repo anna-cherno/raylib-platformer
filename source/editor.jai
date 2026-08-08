@@ -1,10 +1,6 @@
-Editor_State :: struct {
+Editor :: struct {
     mode: Type = Editor_Tileset_Mode;
     camera: Camera2D;
-
-    // Game data.
-    level: *Level;
-    player: *Player;
 
     // Assets data.
     tileset_names: []string;
@@ -87,119 +83,102 @@ Editor_Tileset_Mode :: struct {
     }
 }
 
-editor_init :: (editor: *Editor_State, game: *Game_State) -> ok: bool, err: string {
-    assert(editor != null && game != null && game.world != null);
+init_editor :: () -> bool {
+    assert(game.state == .RUNNING);
 
-    // Game data.
-    editor.level = game.world.levels[game.world.current_level_index];
-    editor.player = *game.player;
-
-    // Assets data.
     editor.tileset_names = collect_tileset_names();
     if editor.tileset_names.count == 0 {
-        return false, "There is no any tileset found.";
+        log_warning("[РЕДАКТОР]: Не найдено ни одного тайлсета");
     }
 
-    init_panels(editor);
-    init_camera(*editor.camera, editor.player.position);
+    init_editor_panels();
+    init_editor_camera();
 
-    if editor.mode == {
-        case Editor_Tileset_Mode;
-            found, tileset := table_find(*g_assets.tilesets, editor.tileset_names[0]);
-            if !found {
-                return false, tprint("Tileset % not found in assets table", editor.tileset_names[0]);
-            }
-            ok, err := init_tileset_mode(editor, tileset);
-            if !ok {
-                return false, err;
-            }
+    // Режимы редактора.
+    if !init_editor_tileset_mode() {
+        log_error("[РЕДАКТОР]: Не удалось инициализировать редактор в режиме тайлсет");
+        return false;
     }
+    
     editor.initialized = true;
 
-    return true, "";
+    return true;
 }
 
-editor_update :: (editor: *Editor_State, dt: float) {
-    assert(editor && editor.initialized);
+update_editor :: (dt: float) {
+    assert(editor.initialized);
 
     mouse_pos := GetMousePosition();
     editor.mouse_inside_editor =
-        CheckCollisionPointRec(mouse_pos, editor.bottom_panel_rect) || CheckCollisionPointRec(mouse_pos, editor.left_panel_rect);
+        CheckCollisionPointRec(mouse_pos, editor.bottom_panel_rect) ||
+        CheckCollisionPointRec(mouse_pos, editor.left_panel_rect);
 
     if editor.mouse_inside_editor {
         if editor.mode == {
             case Editor_Tileset_Mode;
-                update_tileset_mode(editor, mouse_pos);
+                update_editor_tileset_mode(mouse_pos);
         }
-    } else {
-        update_camera(*editor.camera);
+        return;
+    }
+    
+    update_editor_camera();
 
-        layer := editor.level.layers[editor.selected_layer_index];
-        tx, ty := editor_mouse_tile(editor.camera, mouse_pos);
-        if tx < 0 || ty < 0 || tx >= editor.level.cols || ty >= editor.level.rows then return;
+    level := current_level();
+    layer := level.layers[editor.selected_layer_index];
+    tx, ty := editor_mouse_tile(mouse_pos);
+    if tx >= 0 && ty >= 0 && tx < level.cols && ty < level.rows {
         editor.hovered_tile = .{xx tx, xx ty};
+    }
 
-        idx := tile_index(tx, ty, editor.level.cols);
+    idx := tile_index(tx, ty, level.cols);
+    if idx >= 0 && idx < layer.data.count {
         if IsMouseButtonDown(MOUSE_LEFT_BUTTON) {
             layer.data[idx].collision = editor.tileset_mode.selected_collision;
-            tilemap_update_autotiling(*layer, tx, ty, editor.level.cols, editor.level.rows);
+            tilemap_update_autotiling(*layer, tx, ty, level.cols, level.rows);
         }
         if IsMouseButtonDown(MOUSE_RIGHT_BUTTON) {
             layer.data[idx].collision = .EMPTY;
             layer.data[idx].id = EMPTY_TILE;
             layer.data[idx].flags = 0;
-            tilemap_update_autotiling(*layer, tx, ty, editor.level.cols, editor.level.rows);
+            tilemap_update_autotiling(*layer, tx, ty, level.cols, level.rows);
         }
-        if IsKeyDown(.KEY_F) {
-            editor.level.fruit = Vector2i.{xx tx, xx ty};
-        }
+    }
+    if IsKeyDown(.KEY_F) {
+        level.fruit = Vector2i.{xx tx, xx ty};
     }
 }
 
-editor_close :: (editor: *Editor_State) {
-    assert(editor && editor.initialized);
+deinit_editor :: () -> bool {
+    assert(editor.initialized);
 
     if editor.tileset_mode.initialized {
-        close_tileset_mode(*editor.tileset_mode);
+        deinit_editor_tileset_mode();
     }
 
     array_free(editor.tileset_names);
+    editor.initialized = false;
 
-    editor.player = null;
-    editor.level = null;
+    return true;
 }
 
-editor_draw :: (editor: *Editor_State) {
-    ClearBackground(BLACK);
-
-    editor_draw_viewport(editor);
-
-    // Panels.
-    draw_left_panel(editor);
-    draw_bottom_panel(editor);
+draw_editor_overlay :: () {
+    draw_editor_left_panel();
+    draw_editor_bottom_panel();
 }
 
-editor_draw_viewport :: (editor: *Editor_State) {
-    BeginMode2D(editor.camera);
-        level_draw(editor.level, editor.camera);
-        draw_grid(editor.level.bounds);
-        player_draw(editor.player);
-
-        if !editor.mouse_inside_editor {
-            rect := Rectangle.{
-                xx (editor.hovered_tile.x * TILE_SIZE),
-                xx (editor.hovered_tile.y * TILE_SIZE),
-                xx TILE_SIZE,
-                xx TILE_SIZE,
-            };
-            DrawRectangleLinesEx(rect, 1, ORANGE);
-            debug_draw_collider(editor.tileset_mode.selected_collision, editor.hovered_tile.x, editor.hovered_tile.y);
-        }
-    EndMode2D();
+draw_editor_tile_hovers :: () {
+    if editor.mouse_inside_editor then return;
+    rect := Rectangle.{
+        xx (editor.hovered_tile.x * TILE_SIZE),
+        xx (editor.hovered_tile.y * TILE_SIZE),
+        xx TILE_SIZE,
+        xx TILE_SIZE,
+    };
+    DrawRectangleLinesEx(rect, 1, ORANGE);
 }
 
-editor_mouse_tile :: inline (cam: Camera2D, mouse_pos: Vector2) -> int, int {
-    mouse_world := GetScreenToWorld2D(mouse_pos, cam);
+editor_mouse_tile :: inline (mouse_pos: Vector2) -> int, int {
+    mouse_world := GetScreenToWorld2D(mouse_pos, editor.camera);
     return world_to_tile_x(mouse_world.x), world_to_tile_y(mouse_world.y);
 }
 
@@ -208,17 +187,18 @@ editor_mouse_tile :: inline (cam: Camera2D, mouse_pos: Vector2) -> int, int {
 /**
  * Panels.
  */
-init_panels :: (editor: *Editor_State) {
+init_editor_panels :: () {
     editor.bottom_panel_rect = .{ 0, window_height - 300.0, xx window_width, 300 };
     editor.bottom_panel_content = .{ 0, 0, editor.bottom_panel_rect.width - 5, editor.bottom_panel_rect.height - 30};
     editor.left_panel_rect = .{ 0, 0, 250, window_height - editor.bottom_panel_rect.height };
 }
 
-draw_left_panel :: (editor: *Editor_State) {
+draw_editor_left_panel :: () {
+    level  := current_level();
     content_rect := Rectangle.{
         0, 0,
         editor.left_panel_rect.width - 5.0,
-        editor.level.layers.count * 48.0 + 50
+        level.layers.count * 48.0 + 50
     };
 
     GuiScrollPanel(editor.left_panel_rect, "Tilemap Layers", content_rect,
@@ -234,19 +214,19 @@ draw_left_panel :: (editor: *Editor_State) {
         editor.should_add_new_layer = xx GuiButton(
             .{
                 layers_anchor.x + editor.left_panel_scroll.x,
-                layers_anchor.y + editor.left_panel_scroll.y + editor.level.layers.count * 48.0,
+                layers_anchor.y + editor.left_panel_scroll.y + level.layers.count * 48.0,
                 225, 24
             },
             "Add new layer"
         );
-        for * editor.level.layers {
-            draw_tilemap_layer_item(editor, it, it_index, layers_anchor + editor.left_panel_scroll);
+        for * level.layers {
+            draw_tilemap_layer_item(it, it_index, layers_anchor + editor.left_panel_scroll);
             layers_anchor.y += 48;
         }
     EndScissorMode();
 }
 
-draw_bottom_panel :: (editor: *Editor_State) {
+draw_editor_bottom_panel :: () {
     anchor := Vector2.{ editor.bottom_panel_rect.x, editor.bottom_panel_rect.y };
 
     // Change editor mode.
@@ -265,7 +245,7 @@ draw_bottom_panel :: (editor: *Editor_State) {
         xx editor.bottom_panel_view.height
     );
         if editor.mode == {
-            case Editor_Tileset_Mode; draw_tileset_mode(editor);
+            case Editor_Tileset_Mode; draw_editor_tileset_mode();
         }
     EndScissorMode();
 
@@ -280,17 +260,15 @@ draw_bottom_panel :: (editor: *Editor_State) {
 /**
  * Camera.
  */
-init_camera :: (camera: *Camera2D, initial_position: Vector2) {
-    assert(camera != null);
-
-    camera.zoom = 4;
-    camera.offset = .{ xx (window_width * 0.5), xx (window_height * 0.5) };
-    camera.target = initial_position;
+init_editor_camera :: () {
+    editor.camera.zoom = 4;
+    editor.camera.offset = .{ xx (window_width * 0.5), xx (window_height * 0.5) };
+    editor.camera.target = game.player.position;
 }
 
-update_camera :: (camera: *Camera2D) {
-    assert(camera != null);
-
+update_editor_camera :: () {
+    camera := *editor.camera;
+    
     if IsMouseButtonDown(MOUSE_MIDDLE_BUTTON) {
         delta := GetMouseDelta();
         camera.target -= delta / camera.zoom;
@@ -310,7 +288,15 @@ update_camera :: (camera: *Camera2D) {
 /**
  * Tileset Mode.
  */
-init_tileset_mode :: (editor: *Editor_State, tileset: *Tileset) -> ok: bool, err: string {
+init_editor_tileset_mode :: () -> bool {
+    assert(editor.tileset_names.count > 0);
+    
+    tileset := table_find_pointer(*assets.tilesets, editor.tileset_names[0]);
+    if tileset == null {
+        log_error("Не удалось найти тайлсет %s среди ассетов", *editor.tileset_names[0]);
+        return false; 
+    }
+    
     editor.tileset_mode.tileset_rect = .{
         editor.bottom_panel_rect.x,
         editor.bottom_panel_rect.y + 52,
@@ -318,13 +304,14 @@ init_tileset_mode :: (editor: *Editor_State, tileset: *Tileset) -> ok: bool, err
         editor.bottom_panel_rect.height - 82
     };
     editor.tileset_mode.tileset = tileset;
-    editor.tileset_mode.tile_size = editor.tileset_mode.tileset.texture.width / editor.tileset_mode.tileset.cols * editor.tileset_mode.tileset_zoom;
+    editor.tileset_mode.tile_size = tileset.texture.width / tileset.cols * editor.tileset_mode.tileset_zoom;
     editor.tileset_mode.initialized = true;
 
-    return true, "";
+    return true;
 }
 
-close_tileset_mode :: (state: *Editor_Tileset_Mode) {
+deinit_editor_tileset_mode :: () {
+    state := *editor.tileset_mode;
     assert(state.initialized);
 
     state.tileset = null;
@@ -333,8 +320,9 @@ close_tileset_mode :: (state: *Editor_Tileset_Mode) {
     state.initialized = false;
 }
 
-update_tileset_mode :: (using editor: *Editor_State, mouse_pos: Vector2) {
-    assert(tileset_mode.initialized);
+update_editor_tileset_mode :: (mouse_pos: Vector2) {
+    using editor;
+    assert(editor.tileset_mode.initialized);
 
     if CheckCollisionPointRec(mouse_pos, tileset_mode.tileset_rect) {
         wheel := GetMouseWheelMove();
@@ -368,8 +356,9 @@ update_tileset_mode :: (using editor: *Editor_State, mouse_pos: Vector2) {
         }
     }
 
+    level := current_level();
     if should_add_new_layer {
-        array_add(*level.layers, tilemap_create(level, tileset_mode.tileset));
+        array_add(*level.layers, create_tilemap(level, tileset_mode.tileset));
         should_add_new_layer = false;
     }
     if should_delete_layer_index != -1 {
@@ -391,12 +380,11 @@ update_tileset_mode :: (using editor: *Editor_State, mouse_pos: Vector2) {
 
     loaded_tileset_name := tileset_names[tileset_mode.tileset_dropdown_active];
     if loaded_tileset_name != tileset_mode.tileset.name {
-        found := false;
-        found, tileset_mode.tileset = table_find(*g_assets.tilesets, loaded_tileset_name);
+        tileset_mode.tileset = table_find_pointer(*assets.tilesets, loaded_tileset_name);
     }
 }
 
-draw_tileset_mode :: (editor: *Editor_State) {
+draw_editor_tileset_mode :: () {
     assert(editor.initialized && editor.tileset_mode.initialized);
 
     draw_tileset_picker(*editor.tileset_mode);
@@ -577,9 +565,9 @@ draw_rule_grid_mask :: (rule: *Tileset_Rule, anchor: Vector2) {
 collect_tileset_names :: () -> []string {
     names: [..]string;
 
-    array_reserve(*names, g_assets.tilesets.count);
+    array_reserve(*names, assets.tilesets.count);
 
-    for g_assets.tilesets {
+    for assets.tilesets {
         array_add(*names, it_index);
     }
 
@@ -589,7 +577,7 @@ collect_tileset_names :: () -> []string {
 /**
  * Tilemap Layers.
  */
-draw_tilemap_layer_item :: (editor: *Editor_State, tilemap: *Tilemap, index: int, anchor: Vector2) {
+draw_tilemap_layer_item :: (tilemap: *Tilemap, index: int, anchor: Vector2) {
     GuiGroupBox(.{ anchor.x, anchor.y, 225, 40 }, tprint("Layer %\0", index).data);
 
     margin_top :: 8.0;
@@ -606,7 +594,7 @@ draw_tilemap_layer_item :: (editor: *Editor_State, tilemap: *Tilemap, index: int
         if edit {
             editor.tilemap_dropdown_edited_index = -1;
             name := editor.tileset_names[tileset_index];
-            ok, tilemap.tileset = table_find(*g_assets.tilesets, name);
+            tilemap.tileset = table_find_pointer(*assets.tilesets, name);
         } else {
             editor.tilemap_dropdown_edited_index = index;
         }
@@ -618,15 +606,16 @@ draw_tilemap_layer_item :: (editor: *Editor_State, tilemap: *Tilemap, index: int
     GuiToggle(.{ x, anchor.y + margin_top, 25, 25 }, to_c_string(icon), *tilemap.visible);
 
     x += 25 + margin_between;
+    level := current_level();
     if GuiButton(.{ x, anchor.y + margin_top, 25, 25 }, "#121#") {
-        if index + 1 < editor.level.layers.count {
-            swap(*editor.level.layers[index+1], *editor.level.layers[index]);
+        if index + 1 < level.layers.count {
+            swap(*level.layers[index+1], *level.layers[index]);
         }
     }
     x += 25;
     if GuiButton(.{ x, anchor.y + margin_top, 25, 25 }, "#120#") {
         if index - 1 >= 0 {
-            swap(*editor.level.layers[index-1], *editor.level.layers[index]);
+            swap(*level.layers[index-1], *level.layers[index]);
         }
     }
 

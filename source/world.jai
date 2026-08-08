@@ -1,5 +1,5 @@
 World :: struct {
-    levels: [..]*Level;
+    levels: [..]Level;
     current_level_index: int;
 }
 
@@ -8,7 +8,6 @@ Level :: struct {
     bounds: Rectangle;
     cols, rows: s32;
 
-    player:   *Player;
     layers:   [..]Tilemap;
     seeds:    [..]Seed;
     fruit:    Vector2i;
@@ -18,75 +17,79 @@ Level :: struct {
     active := true;
 }
 
-// Create a new world.
-world_create :: () -> *World {
-    world := New(World);
+init_world :: () -> bool {
+    // Тайлсет по умолчанию.
+    default_tileset := table_find_pointer(*assets.tilesets, "green_tileset");
+    if default_tileset == null {
+        log_error("Не удалось найти %s тайлсет при инициализации мира", "green_tileset");
+        return false;
+    }
+    
+    // Уровень по умолчанию.
+    array_add(*game.world.levels, create_level("level_01", 50, 25, default_tileset));
 
-    // Create initial level.
-    array_add(*world.levels, level_create("level_01", 50, 25));
-
-    return world;
+    return true;
 }
 
-// Destroy a world.
-world_destroy :: (world: *World) {
-    for l: world.levels {
-        level_destroy(l);
+deinit_world :: () -> bool {
+    for *game.world.levels {
+        destroy_level(it);
     }
+    game.world.current_level_index = 0;
 
-    free(world);
+    return true;
 }
 
-world_update :: (w: *World, dt: float) {
-    for l: w.levels {
-        if l.active then level_update(l, dt);
-    }
-}
-
-world_draw :: (w: *World, camera: Camera2D) {
-    for l: w.levels {
-        if l.active then level_draw(l, camera);
+update_world :: (dt: float) {
+    cur_level := current_level();
+    if cur_level != null {
+        update_level(cur_level, dt);
     }
 }
 
-level_create :: (name: string, cols: s32, rows: s32) -> *Level {
-    level := New(Level);
-    level.name = "default";
-    level.bounds = {0, 0, xx (cols * TILE_SIZE), xx (rows * TILE_SIZE)};
-    level.cols = cols;
-    level.rows = rows;
-    level.player = *g_game.player;
-
-    // Default tile layer.
-    ok, tileset := table_find(*g_assets.tilesets, "green_tileset");
-    if ok {
-        array_add(*level.layers, tilemap_create(level, tileset));
+draw_world :: () {
+    cur_level := current_level();
+    if cur_level != null {
+        draw_level(cur_level);
     }
+
+    draw_player();
+}
+
+create_level :: (name: string, cols: s32, rows: s32, tileset: *Tileset) -> Level {
+    level := Level.{
+        name = name,
+        bounds = {0, 0, xx (cols * TILE_SIZE), xx (rows * TILE_SIZE)},
+        cols = cols,
+        rows = rows,
+    };
+
+    array_add(*level.layers, create_tilemap(*level, tileset));
 
     return level;
 }
 
-level_destroy :: (level: *Level) {
-    for * level.layers {
-        tilemap_destroy(it);
+destroy_level :: (level: *Level) {
+    for *level.layers {
+        destroy_tilemap(it);
     }
     array_free(level.seed_snapshot.seeds);
     array_free(level.seed_snapshot.tiles);
     array_free(level.seeds);
     array_free(level.layers);
-
-    free(level);
+    level.active = false;
 }
 
-level_update :: (level: *Level, dt: float) {
-    for *s: level.seeds {
-        seed_step(s, level, dt);
+update_level :: (level: *Level, dt: float) {
+    for *level.seeds {
+        seed_step(it, level, dt);
     }
 }
 
-level_draw :: (level: *Level, camera: Camera2D) {
+draw_level :: (level: *Level) {
     draw_bounds(level.bounds);
 
+    camera := active_camera();
     top_left     := GetScreenToWorld2D(.{0, 0}, camera);
     bottom_right := GetScreenToWorld2D(.{xx window_width, xx window_height}, camera);
 
@@ -108,4 +111,8 @@ level_draw :: (level: *Level, camera: Camera2D) {
     }
 
     DrawCircleV(.{ xx (level.fruit.x * TILE_SIZE + TILE_SIZE * 0.5), xx (level.fruit.y * TILE_SIZE + TILE_SIZE * 0.5) }, 4.0, RED);
+}
+
+current_level :: inline () -> *Level {
+    return *game.world.levels[game.world.current_level_index];
 }
